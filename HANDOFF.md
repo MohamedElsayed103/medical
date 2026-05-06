@@ -64,32 +64,34 @@ apps/
 
 ## What's Left (Next Steps)
 
-### 1. Migrations
-```bash
-python manage.py makemigrations
-python manage.py migrate_schemas --shared
-```
-- Generate initial migrations for all apps
-- Validate with `django-migration-linter`
+### 1. ~~Migrations~~ ✅ DONE
+All migrations have been generated and applied for all 11 apps (both `public` and `demo_clinic` schemas).
 
-### 2. Keycloak Realm Setup
-- Create `healthcare-saas` realm in Keycloak admin
+### 2. Development Auth (SimpleJWT)
+Since Keycloak is not always running in local dev, **SimpleJWT** has been added as a development authentication backend:
+- `POST /api/v1/auth/register/` — register new user
+- `POST /api/v1/auth/login/` — get access + refresh tokens
+- `POST /api/v1/auth/token/refresh/` — refresh access token
+- `GET /api/v1/auth/me/` — get current user info
+
+### 3. Keycloak Realm Setup (Production)
+- Create `healthcare-saas` realm in Keycloak admin (`http://localhost:8080`, credentials: `admin`/`admin`)
 - Create `web-app` client (confidential, OIDC)
 - Configure redirect URIs, token lifetimes
 - Map user roles to token claims
 
-### 3. MinIO Bucket Initialization
+### 4. MinIO Bucket Initialization
 - Create `medical-documents` and `ai-inputs` buckets
 - Set bucket policies (private by default)
 - Can be automated with an entrypoint script or management command
 
-### 4. Tests
+### 5. Tests
 - Unit tests for each service layer (most critical)
 - Integration tests for API endpoints (with `django-tenants` test utilities)
 - Test fixtures / factories (recommend `factory_boy`)
 - Target: 80%+ coverage (configured in `pyproject.toml`)
 
-### 5. Missing Functional Pieces
+### 6. Missing Functional Pieces
 | Item | Notes |
 |------|-------|
 | Email/SMS/Push integration | Channel adapters are placeholder stubs — wire up SendGrid/Twilio/FCM |
@@ -131,6 +133,58 @@ python manage.py migrate_schemas --shared
 
 ---
 
+## Changes Made (Implementation Session)
+
+### Bug Fixes
+| File | Fix |
+|------|-----|
+| `apps/lab_results/models.py` | `LabOrderStatus.PENDING` → `LabOrderStatus.ORDERED` (enum didn't have PENDING) |
+| `apps/lab_results/models.py` | `ResultFlag.CRITICAL_LOW` / `CRITICAL_HIGH` → `ResultFlag.CRITICAL` |
+| `apps/appointments/admin.py` | `appointment_type` → `type` (field is named `type` on the model) |
+| `apps/medical_records/admin.py` | `diagnosis_type` → `type` (field is named `type` on the model) |
+| `apps/billing/services.py` | `InvoiceStatus.SENT` → `InvoiceStatus.ISSUED` (enum uses ISSUED) |
+| `apps/billing/services.py` | Removed references to `InvoiceStatus.REFUNDED` and `InvoiceStatus.VOIDED` (don't exist in enum) |
+| `config/settings/development.py` | Removed `debug_toolbar` (was causing `NoReverseMatch 'djdt'` errors) |
+
+### New Features Added
+| Feature | Details |
+|---------|---------|
+| **SimpleJWT Auth** | Added `rest_framework_simplejwt` to dev settings; `RegisterView`, `LoginView`, `TokenRefreshView` in `apps/accounts/views.py` and `apps/accounts/urls.py` |
+| **React Frontend** | Full Vite + React + TypeScript frontend at `../frontend/` with 9 pages (Login, Dashboard, Patients, Appointments, Medical Records, Prescriptions, Lab Results, Billing, Notifications) |
+| **Vite Proxy** | Frontend dev server on port 3000 proxies `/api/v1/*` to Django on port 8000 |
+
+### Database & Tenants Setup
+- PostgreSQL 18 running locally (user: `healthcare_user`, password: `healthcare_pass`, db: `healthcare`)
+- Public tenant created (schema: `public`, domain: `public.localhost`)
+- Demo Clinic tenant created (schema: `demo_clinic`, domain: `localhost`)
+- Admin user: `admin@healthcare.com` / `admin123456` (role: `owner` in Demo Clinic)
+- `.env` file created with `FIELD_ENCRYPTION_KEY` set
+
+### All API Endpoints Verified Working
+- `POST /api/v1/auth/login/` — JWT login
+- `POST /api/v1/auth/register/` — user registration
+- `POST /api/v1/auth/token/refresh/` — token refresh
+- `GET /api/v1/auth/me/` — current user
+- `GET/POST /api/v1/patients/` — CRUD patients
+- `GET/POST /api/v1/appointments/` — book appointments
+- `POST /api/v1/appointments/{id}/confirm/` — confirm
+- `POST /api/v1/appointments/{id}/start/` — start
+- `POST /api/v1/appointments/{id}/complete/` — complete
+- `POST /api/v1/appointments/{id}/cancel/` — cancel
+- `GET/POST /api/v1/appointments/doctors/` — CRUD doctors
+- `GET/POST /api/v1/visits/` — medical visits
+- `GET/POST /api/v1/prescriptions/` — prescriptions with items
+- `GET/POST /api/v1/prescriptions/medications/` — medications
+- `GET/POST /api/v1/lab-orders/` — lab orders with tests
+- `GET/POST /api/v1/invoices/` — invoices with line items
+- `POST /api/v1/invoices/{id}/finalize/` — finalize (draft → issued)
+- `POST /api/v1/invoices/{id}/pay/` — record payment
+- `GET /api/v1/notifications/` — notifications
+- `GET /api/v1/audit-logs/` — audit trail (auto-logged)
+- `GET /health/` — health check
+
+---
+
 ## Quick Start (for the next developer)
 
 ```bash
@@ -157,4 +211,21 @@ python manage.py runserver
 
 # 7. Or run everything via Docker
 docker compose up
+```
+
+### Quick Start (already set up — current state)
+
+```bash
+# Backend
+cd medical
+source venv/bin/activate
+python manage.py runserver
+# → http://localhost:8000
+
+# Frontend (separate terminal)
+cd frontend
+npm run dev
+# → http://localhost:3000
+
+# Login with: admin@healthcare.com / admin123456
 ```

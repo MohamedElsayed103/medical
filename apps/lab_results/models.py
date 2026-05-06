@@ -27,7 +27,7 @@ class LabOrder(BaseModel):
         Visit, null=True, blank=True, on_delete=models.SET_NULL, related_name="lab_orders"
     )
     order_number = models.CharField(max_length=30, unique=True, db_index=True)
-    status = models.CharField(max_length=20, choices=LabOrderStatus.choices, default=LabOrderStatus.PENDING)
+    status = models.CharField(max_length=20, choices=LabOrderStatus.choices, default=LabOrderStatus.ORDERED)
     priority = models.CharField(max_length=10, choices=LabPriority.choices, default=LabPriority.ROUTINE)
     clinical_notes = models.TextField(blank=True)
     ordered_at = models.DateTimeField(auto_now_add=True)
@@ -94,10 +94,10 @@ class TestResult(BaseModel):
 
         if self.reference_range_low is not None and numeric_value < self.reference_range_low:
             critical_low = self.reference_range_low * Decimal("0.5")
-            return ResultFlag.CRITICAL_LOW if numeric_value <= critical_low else ResultFlag.LOW
+            return ResultFlag.CRITICAL if numeric_value <= critical_low else ResultFlag.LOW
 
         if self.reference_range_high is not None and numeric_value > self.reference_range_high:
             critical_high = self.reference_range_high * Decimal("1.5")
-            return ResultFlag.CRITICAL_HIGH if numeric_value >= critical_high else ResultFlag.HIGH
+            return ResultFlag.CRITICAL if numeric_value >= critical_high else ResultFlag.HIGH
 
         return ResultFlag.NORMAL

@@ -11,7 +11,7 @@ class DoctorProfileAdmin(admin.ModelAdmin):
 
 @admin.register(Appointment)
 class AppointmentAdmin(admin.ModelAdmin):
-    list_display = ["id", "patient", "doctor", "scheduled_at", "status", "appointment_type"]
-    list_filter = ["status", "appointment_type"]
+    list_display = ["id", "patient", "doctor", "scheduled_at", "status", "type"]
+    list_filter = ["status", "type"]
     search_fields = ["patient__first_name", "patient__last_name"]
     date_hierarchy = "scheduled_at"

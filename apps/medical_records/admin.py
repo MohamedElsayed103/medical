@@ -17,5 +17,5 @@ class VitalsAdmin(admin.ModelAdmin):
 
 @admin.register(Diagnosis)
 class DiagnosisAdmin(admin.ModelAdmin):
-    list_display = ["id", "visit", "icd_code", "diagnosis_type"]
-    list_filter = ["diagnosis_type"]
+    list_display = ["id", "visit", "icd_code", "type"]
+    list_filter = ["type"]

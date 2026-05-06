@@ -76,7 +76,7 @@ class BillingService:
     def finalize_invoice(invoice: Invoice) -> Invoice:
         if invoice.status != InvoiceStatus.DRAFT:
             raise ServiceError("Only draft invoices can be finalized.", code="NOT_DRAFT")
-        invoice.status = InvoiceStatus.SENT
+        invoice.status = InvoiceStatus.ISSUED
         invoice.save(update_fields=["status", "updated_at"])
         logger.info("invoice_finalized", invoice_id=str(invoice.id))
         return invoice
@@ -92,7 +92,7 @@ class BillingService:
         reference_number: str = "",
         notes: str = "",
     ) -> Payment:
-        if invoice.status in (InvoiceStatus.DRAFT, InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED):
+        if invoice.status in (InvoiceStatus.DRAFT, InvoiceStatus.CANCELLED):
             raise ServiceError(
                 f"Cannot record payment on {invoice.status} invoice.",
                 code="INVALID_INVOICE_STATUS",
@@ -148,7 +148,7 @@ class BillingService:
     def void_invoice(invoice: Invoice) -> Invoice:
         if invoice.status == InvoiceStatus.CANCELLED:
             raise ServiceError("Invoice already cancelled.", code="ALREADY_CANCELLED")
-        invoice.status = InvoiceStatus.VOIDED
+        invoice.status = InvoiceStatus.CANCELLED
         invoice.save(update_fields=["status", "updated_at"])
         logger.info("invoice_voided", invoice_id=str(invoice.id))
         return invoice
