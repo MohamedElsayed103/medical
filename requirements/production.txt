@@ -1,0 +1,8 @@
+-r base.txt
+
+# ──────────────── WSGI Server ────────────────
+gunicorn>=21.0,<22.0
+gevent>=24.0,<25.0
+
+# ──────────────── Production Utilities ────────────────
+whitenoise>=6.6,<7.0

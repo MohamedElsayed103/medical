@@ -1,0 +1,41 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── Environment ──
+.env
+.env.*
+!.env.example
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Django ──
+staticfiles/
+media/
+db.sqlite3
+
+# ── Docker ──
+docker-compose.override.yml
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Coverage ──
+htmlcov/
+.coverage
+.coverage.*
+
+# ── pytest ──
+.pytest_cache/
+
+# ── mypy ──
+.mypy_cache/
