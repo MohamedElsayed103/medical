@@ -5,6 +5,8 @@ Orchestrates: create AIRequest → dispatch Celery task → (task calls AI clien
 """
 import structlog
 from django.utils import timezone
+from django_prometheus.conf import NAMESPACE
+from prometheus_client import Counter, Histogram
 
 from common.enums import AIRequestStatus
 from common.exceptions import ServiceError
@@ -13,6 +15,19 @@ from .clients import AIClient, AIClientError
 from .models import AIRequest
 
 logger = structlog.get_logger(__name__)
+
+# ── Prometheus metrics ──
+ai_requests_total = Counter(
+    "ai_requests_total",
+    "Total AI requests by type and status",
+    ["request_type", "status"],
+)
+ai_processing_duration = Histogram(
+    "ai_processing_duration_seconds",
+    "AI request processing duration",
+    ["request_type"],
+    buckets=[0.5, 1, 2, 5, 10, 30, 60, 120],
+)
 
 
 class AIService:
@@ -60,9 +75,11 @@ class AIService:
         ai_request.save(update_fields=["status", "updated_at"])
 
         endpoint_map = {
+            "prescription_ocr": "/v1/ocr",
+            "lab_analysis": "/v1/interpret-labs",
+            "radiology": "/v1/radiology",
             "diagnosis_suggestion": "/v1/diagnose",
             "drug_interaction": "/v1/drug-interaction",
-            "lab_interpretation": "/v1/interpret-labs",
             "clinical_summary": "/v1/summarize",
             "treatment_plan": "/v1/treatment-plan",
         }
@@ -90,6 +107,14 @@ class AIService:
                 "updated_at",
             ])
 
+            # Prometheus metrics
+            ai_requests_total.labels(
+                request_type=ai_request.request_type, status="completed"
+            ).inc()
+            ai_processing_duration.labels(
+                request_type=ai_request.request_type
+            ).observe(ai_request.latency_ms / 1000.0)
+
             logger.info(
                 "ai_request_completed",
                 ai_request_id=str(ai_request.id),
@@ -111,6 +136,9 @@ class AIService:
                 ai_request_id=str(ai_request.id),
                 error=str(exc),
             )
+            ai_requests_total.labels(
+                request_type=ai_request.request_type, status="failed"
+            ).inc()
             raise
 
         return ai_request

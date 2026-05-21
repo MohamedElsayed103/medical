@@ -20,6 +20,7 @@ urlpatterns = [
     path("", include("django_prometheus.urls")),
     # ── API v1 ──
     path("api/v1/auth/", include("apps.accounts.urls", namespace="accounts")),
+    path("api/v1/rbac/", include("apps.rbac.urls", namespace="rbac")),
     path("api/v1/tenants/", include("apps.tenants.urls", namespace="tenants")),
     path("api/v1/patients/", include("apps.patients.urls", namespace="patients")),
     path("api/v1/appointments/", include("apps.appointments.urls", namespace="appointments")),
@@ -30,4 +31,7 @@ urlpatterns = [
     path("api/v1/notifications/", include("apps.notifications.urls", namespace="notifications")),
     path("api/v1/ai/", include("apps.ai_integration.urls", namespace="ai_integration")),
     path("api/v1/audit-logs/", include("apps.audit.urls", namespace="audit")),
+    path("api/v1/pharmacy/", include("apps.pharmacy.urls", namespace="pharmacy")),
+    path("api/v1/referrals/", include("apps.referrals.urls", namespace="referrals")),
+    path("api/v1/insurance/", include("apps.insurance.urls", namespace="insurance")),
 ]

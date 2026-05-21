@@ -47,16 +47,19 @@ SHARED_APPS = [
     "drf_spectacular",
     "django_celery_beat",
     "django_prometheus",
+    "channels",
     # Project apps in public schema
     "apps.tenants",
     "apps.accounts",
     "apps.audit",
+    "apps.referrals",
 ]
 
 TENANT_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.auth",
     # Project apps in tenant schemas
+    "apps.rbac",
     "apps.patients",
     "apps.appointments",
     "apps.prescriptions",
@@ -65,6 +68,8 @@ TENANT_APPS = [
     "apps.billing",
     "apps.notifications",
     "apps.ai_integration",
+    "apps.pharmacy",
+    "apps.insurance",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [
@@ -144,6 +149,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ──────────────────────────────────────────────
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "apps.accounts.authentication.KeycloakJWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
@@ -177,10 +183,54 @@ REST_FRAMEWORK = {
 # ──────────────────────────────────────────────
 SPECTACULAR_SETTINGS = {
     "TITLE": "Healthcare SaaS API",
-    "DESCRIPTION": "Production-ready Healthcare SaaS platform API.",
+    "DESCRIPTION": (
+        "Production-ready Healthcare SaaS platform API.\n\n"
+        "Multi-tenant (schema-per-tenant) architecture supporting clinics, "
+        "hospitals, and laboratories. Features EMR, appointments, prescriptions, "
+        "lab results, billing, AI integration, pharmacy, insurance, referrals, "
+        "and real-time notifications.\n\n"
+        "## Authentication\n"
+        "1. **Register** — `POST /api/v1/auth/register/`\n"
+        "2. **Login** — `POST /api/v1/auth/login/` → copy the `access` token\n"
+        "3. Click **Authorize** above and paste: `Bearer <access_token>`\n"
+    ),
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    "EXTENSIONS": [
+        "common.schema",
+    ],
+    "TAGS": [
+        {"name": "auth", "description": "Authentication & user profile"},
+        {"name": "rbac", "description": "Roles, permissions, tenant users & invitations"},
+        {"name": "tenants", "description": "Organization / tenant management"},
+        {"name": "patients", "description": "Patient registry"},
+        {"name": "appointments", "description": "Scheduling & appointment management"},
+        {"name": "visits", "description": "Medical records / clinical visits"},
+        {"name": "prescriptions", "description": "Prescriptions & medications"},
+        {"name": "lab-orders", "description": "Lab orders & test results"},
+        {"name": "invoices", "description": "Invoices & payments"},
+        {"name": "billing", "description": "Billing summary & analytics"},
+        {"name": "notifications", "description": "Notifications & preferences"},
+        {"name": "ai", "description": "AI integration requests"},
+        {"name": "audit-logs", "description": "Audit logs"},
+        {"name": "pharmacy", "description": "Pharmacy inventory & dispensing"},
+        {"name": "referrals", "description": "Inter-facility referrals"},
+        {"name": "insurance", "description": "Insurance claims & providers"},
+        {"name": "health", "description": "System health checks"},
+    ],
+    "SCHEMA_PATH_PREFIX": "/api/v1/",
+    "SECURITY": [{"Bearer": []}],
+    "APPEND_COMPONENTS": {
+        "securitySchemes": {
+            "Bearer": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "JWT token from SimpleJWT (dev) or Keycloak OIDC (production)",
+            }
+        }
+    },
 }
 
 # ──────────────────────────────────────────────
@@ -199,6 +249,30 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TASK_ROUTES = {
     "apps.ai_integration.tasks.*": {"queue": "ai_tasks"},
     "apps.notifications.tasks.*": {"queue": "notifications"},
+    "apps.billing.tasks.*": {"queue": "default"},
+    "apps.appointments.tasks.*": {"queue": "default"},
+}
+
+# ── Celery Beat schedule ──
+from celery.schedules import crontab  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = {
+    "mark-overdue-invoices": {
+        "task": "apps.billing.tasks.mark_overdue_invoices",
+        "schedule": crontab(hour=0, minute=5),  # daily at 00:05 UTC
+    },
+    "send-appointment-reminders": {
+        "task": "apps.appointments.tasks.send_appointment_reminders",
+        "schedule": crontab(minute=0),  # every hour
+    },
+    "check-low-stock": {
+        "task": "apps.pharmacy.tasks.check_low_stock_alerts",
+        "schedule": crontab(hour=6, minute=0),  # daily at 06:00 UTC
+    },
+    "check-expiring-stock": {
+        "task": "apps.pharmacy.tasks.check_expiring_stock",
+        "schedule": crontab(hour=6, minute=30),  # daily at 06:30 UTC
+    },
 }
 
 # ──────────────────────────────────────────────
@@ -210,6 +284,20 @@ CACHES = {
         "LOCATION": env("REDIS_URL", default="redis://localhost:6379/0"),
     }
 }
+
+# ──────────────────────────────────────────────
+# Channel Layers (Django Channels / WebSocket)
+# ──────────────────────────────────────────────
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [env("REDIS_URL", default="redis://localhost:6379/0")],
+        },
+    },
+}
+
+ASGI_APPLICATION = "config.asgi.application"
 
 # ──────────────────────────────────────────────
 # Storage (MinIO / S3)
@@ -251,13 +339,20 @@ if SENTRY_DSN:
     import sentry_sdk
     from sentry_sdk.integrations.celery import CeleryIntegration
     from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
 
     sentry_sdk.init(
         dsn=SENTRY_DSN,
-        integrations=[DjangoIntegration(), CeleryIntegration()],
+        integrations=[
+            DjangoIntegration(transaction_style="url"),
+            CeleryIntegration(monitor_beat_tasks=True),
+            LoggingIntegration(level=None, event_level="ERROR"),
+        ],
         traces_sample_rate=env.float("SENTRY_TRACES_RATE", default=0.1),
+        profiles_sample_rate=env.float("SENTRY_PROFILES_RATE", default=0.1),
         send_default_pii=False,
         environment=env("SENTRY_ENVIRONMENT", default="development"),
+        release=env("SENTRY_RELEASE", default="healthcare-saas@1.0.0"),
     )
 
 # ──────────────────────────────────────────────
@@ -351,6 +446,14 @@ SECURE_BROWSER_XSS_FILTER = True
 # ──────────────────────────────────────────────
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# ──────────────────────────────────────────────
+# Email
+# ──────────────────────────────────────────────
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@healthsaas.com")
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
+)
 
 # ──────────────────────────────────────────────
 # Password validation

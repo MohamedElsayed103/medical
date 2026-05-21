@@ -5,8 +5,8 @@ import structlog
 from django.db import transaction
 from django.utils.text import slugify
 
-from apps.accounts.models import TenantMembership, User
-from common.enums import UserRole
+from apps.accounts.models import User, UserTenantMapping
+from apps.accounts.services import AccountService
 
 from .models import Domain, Organization
 
@@ -21,7 +21,7 @@ class TenantService:
         *,
         name: str,
         owner: User,
-        org_type: str,
+        type: str,
         license_number: str = "",
         phone: str = "",
         email: str = "",
@@ -33,7 +33,9 @@ class TenantService:
 
         1. Create the Organization (django-tenants auto-creates the schema).
         2. Create a Domain for hostname routing.
-        3. Make the requesting user the owner.
+        3. Create a UserTenantMapping for the owner.
+        4. Seed RBAC roles/permissions in the new tenant schema.
+        5. Create a TenantUser with Admin role for the owner.
         """
         slug = slugify(name)
         schema_name = slug.replace("-", "_")
@@ -42,7 +44,7 @@ class TenantService:
             name=name,
             slug=slug,
             schema_name=schema_name,
-            type=org_type,
+            type=type,
             license_number=license_number,
             phone=phone,
             email=email,
@@ -57,12 +59,30 @@ class TenantService:
             is_primary=True,
         )
 
-        # Owner membership
-        TenantMembership.objects.create(
+        # UserTenantMapping — public schema record that user belongs to this tenant
+        AccountService.add_tenant_mapping(
             user=owner,
             tenant=org,
-            role=UserRole.OWNER,
+            email=owner.email,
+            username=owner.username or owner.email.split("@")[0],
         )
+
+        # Seed RBAC and create admin user in tenant schema
+        from django.db import connection
+        from django_tenants.utils import schema_context
+
+        with schema_context(schema_name):
+            from apps.rbac.services import RBACService, TenantUserService
+            roles, _ = RBACService.seed_roles_and_permissions()
+            admin_role = roles.get("Admin")
+            if admin_role:
+                TenantUserService.get_or_create_tenant_user(
+                    user_id=owner.id,
+                    email=owner.email,
+                    role=admin_role,
+                    first_name=owner.first_name,
+                    last_name=owner.last_name,
+                )
 
         logger.info(
             "organization_created",

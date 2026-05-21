@@ -1,65 +1,72 @@
 """
-Accounts service layer — business logic for user/membership management.
+Accounts service layer — platform-level user identity management.
+
+Tenant-level user management (roles, permissions, invitations) lives in
+apps.rbac.services.
 """
 import structlog
 from django.utils import timezone
 
 from common.utils import encrypt_field, generate_api_key, hash_pin
 
-from .models import TenantMembership, User, UserSecrets
+from .models import User, UserSecrets, UserTenantMapping
 
 logger = structlog.get_logger(__name__)
 
 
 class AccountService:
-    """User and membership operations."""
+    """Platform-level user operations."""
 
     @staticmethod
-    def get_user_memberships(user: User) -> list[TenantMembership]:
+    def get_user_tenant_mappings(user: User) -> list[UserTenantMapping]:
+        """Get all tenant mappings for a user."""
         return list(
-            TenantMembership.objects.filter(user=user, is_active=True)
+            UserTenantMapping.objects.filter(user=user, is_deleted=False)
             .select_related("tenant")
-            .order_by("joined_at")
+            .order_by("created_at")
         )
 
     @staticmethod
-    def add_member(tenant, user: User, role: str) -> TenantMembership:
-        membership, created = TenantMembership.objects.get_or_create(
+    def add_tenant_mapping(
+        user: User,
+        tenant,
+        email: str | None = None,
+        username: str | None = None,
+        keycloak_subject_id: str | None = None,
+    ) -> UserTenantMapping:
+        """Add a user-tenant mapping (called when user joins a tenant)."""
+        email = email or user.email
+        username = username or user.username or email.split("@")[0]
+
+        mapping, created = UserTenantMapping.objects.get_or_create(
             user=user,
             tenant=tenant,
-            defaults={"role": role},
+            defaults={
+                "email": email,
+                "username": username,
+                "keycloak_subject_id": keycloak_subject_id,
+            },
         )
-        if not created and not membership.is_active:
-            membership.is_active = True
-            membership.role = role
-            membership.save(update_fields=["is_active", "role"])
+        if not created and mapping.is_deleted:
+            mapping.is_deleted = False
+            mapping.deleted_at = None
+            mapping.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
+
         logger.info(
-            "member_added",
-            tenant_id=str(tenant.id),
+            "tenant_mapping_added",
             user_id=str(user.id),
-            role=role,
+            tenant_id=str(tenant.id),
             created=created,
         )
-        return membership
+        return mapping
 
     @staticmethod
-    def remove_member(membership: TenantMembership):
-        membership.is_active = False
-        membership.save(update_fields=["is_active"])
-        logger.info("member_removed", membership_id=str(membership.id))
-
-    @staticmethod
-    def update_role(membership: TenantMembership, new_role: str) -> TenantMembership:
-        old_role = membership.role
-        membership.role = new_role
-        membership.save(update_fields=["role"])
-        logger.info(
-            "role_updated",
-            membership_id=str(membership.id),
-            old_role=old_role,
-            new_role=new_role,
-        )
-        return membership
+    def remove_tenant_mapping(mapping: UserTenantMapping):
+        """Soft-delete a user-tenant mapping."""
+        mapping.is_deleted = True
+        mapping.deleted_at = timezone.now()
+        mapping.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
+        logger.info("tenant_mapping_removed", mapping_id=str(mapping.id))
 
 
 class UserSecretsService:
@@ -74,7 +81,8 @@ class UserSecretsService:
     def set_pin(user: User, pin: str) -> None:
         secrets = UserSecretsService.get_or_create_secrets(user)
         secrets.pin_hash = hash_pin(pin)
-        secrets.save(update_fields=["pin_hash", "updated_at"])
+        secrets.status = "active"
+        secrets.save(update_fields=["pin_hash", "status", "updated_at"])
 
     @staticmethod
     def generate_api_key(user: User) -> str:
@@ -82,13 +90,21 @@ class UserSecretsService:
         secrets = UserSecretsService.get_or_create_secrets(user)
         raw_key, hashed_key = generate_api_key()
         secrets.api_key_hash = hashed_key
+        secrets.status = "active"
         secrets.last_rotated_at = timezone.now()
-        secrets.save(update_fields=["api_key_hash", "last_rotated_at", "updated_at"])
+        secrets.save(update_fields=["api_key_hash", "status", "last_rotated_at", "updated_at"])
         logger.info("api_key_generated", user_id=str(user.id))
         return raw_key
 
     @staticmethod
-    def store_refresh_token(user: User, refresh_token: str) -> None:
-        secrets = UserSecretsService.get_or_create_secrets(user)
-        secrets.refresh_token_encrypted = encrypt_field(refresh_token)
-        secrets.save(update_fields=["refresh_token_encrypted", "updated_at"])
+    def revoke_secrets(user: User) -> None:
+        """Revoke all secrets for a user."""
+        try:
+            secrets = user.secrets
+            secrets.status = "revoked"
+            secrets.api_key_hash = None
+            secrets.pin_hash = None
+            secrets.save(update_fields=["status", "api_key_hash", "pin_hash", "updated_at"])
+            logger.info("secrets_revoked", user_id=str(user.id))
+        except UserSecrets.DoesNotExist:
+            pass

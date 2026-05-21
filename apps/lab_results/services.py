@@ -69,9 +69,9 @@ class LabService:
     @staticmethod
     def transition_status(order: LabOrder, new_status: str) -> LabOrder:
         valid_transitions = {
-            LabOrderStatus.PENDING: [LabOrderStatus.COLLECTED, LabOrderStatus.CANCELLED],
-            LabOrderStatus.COLLECTED: [LabOrderStatus.IN_PROGRESS, LabOrderStatus.CANCELLED],
-            LabOrderStatus.IN_PROGRESS: [LabOrderStatus.COMPLETED, LabOrderStatus.CANCELLED],
+            LabOrderStatus.ORDERED: [LabOrderStatus.SAMPLE_COLLECTED, LabOrderStatus.CANCELLED],
+            LabOrderStatus.SAMPLE_COLLECTED: [LabOrderStatus.PROCESSING, LabOrderStatus.CANCELLED],
+            LabOrderStatus.PROCESSING: [LabOrderStatus.COMPLETED, LabOrderStatus.CANCELLED],
         }
         allowed = valid_transitions.get(order.status, [])
         if new_status not in allowed:

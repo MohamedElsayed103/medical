@@ -10,6 +10,7 @@ from apps.accounts.permissions import IsDoctor, IsLabTech, IsNurseOrAbove
 from apps.appointments.models import DoctorProfile
 from apps.medical_records.models import Visit
 from apps.patients.models import Patient
+from common.enums import LabOrderStatus
 
 from .models import LabOrder, LabTest
 from .serializers import (
@@ -73,25 +74,25 @@ class LabOrderViewSet(ModelViewSet):
     @action(detail=True, methods=["post"])
     def collect(self, request, pk=None):
         order = self.get_object()
-        order = LabService.transition_status(order, "collected")
+        order = LabService.transition_status(order, LabOrderStatus.SAMPLE_COLLECTED)
         return Response(LabOrderSerializer(order).data)
 
     @action(detail=True, methods=["post"])
     def in_progress(self, request, pk=None):
         order = self.get_object()
-        order = LabService.transition_status(order, "in_progress")
+        order = LabService.transition_status(order, LabOrderStatus.PROCESSING)
         return Response(LabOrderSerializer(order).data)
 
     @action(detail=True, methods=["post"])
     def complete(self, request, pk=None):
         order = self.get_object()
-        order = LabService.transition_status(order, "completed")
+        order = LabService.transition_status(order, LabOrderStatus.COMPLETED)
         return Response(LabOrderSerializer(order).data)
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
         order = self.get_object()
-        order = LabService.transition_status(order, "cancelled")
+        order = LabService.transition_status(order, LabOrderStatus.CANCELLED)
         return Response(LabOrderSerializer(order).data)
 
     @action(detail=True, methods=["post"], url_path=r"tests/(?P<test_pk>[^/.]+)/result")
@@ -108,3 +109,37 @@ class LabOrderViewSet(ModelViewSet):
             **serializer.validated_data,
         )
         return Response(TestResultSerializer(result).data, status=status.HTTP_201_CREATED)
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path=r"tests/(?P<test_pk>[^/.]+)/result/verify",
+        permission_classes=[IsDoctor],
+    )
+    def verify_result(self, request, pk=None, test_pk=None):
+        """POST /api/v1/lab-orders/{id}/tests/{test_pk}/result/verify/ — doctor verifies a test result."""
+        from apps.lab_results.models import TestResult
+
+        order = self.get_object()
+        test = LabTest.objects.get(pk=test_pk, order=order)
+
+        try:
+            result = test.result
+        except TestResult.DoesNotExist:
+            return Response(
+                {"error": {"code": "NO_RESULT", "message": "No result recorded for this test."}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if result.verified_by_id:
+            return Response(
+                {"error": {"code": "ALREADY_VERIFIED", "message": "Result already verified."}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from django.utils import timezone as tz
+        result.verified_by_id = str(request.user.id)
+        result.verified_at = tz.now()
+        result.save(update_fields=["verified_by_id", "verified_at"])
+
+        return Response(TestResultSerializer(result).data)

@@ -77,6 +77,18 @@ class PrescriptionViewSet(ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    def update(self, request, *args, **kwargs):
+        prescription = self.get_object()
+        serializer = PrescriptionSerializer(prescription, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        prescription = PrescriptionService.update_prescription(
+            prescription, **serializer.validated_data
+        )
+        return Response(PrescriptionSerializer(prescription).data)
+
+    def partial_update(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
     @action(detail=True, methods=["post"])
     def dispense(self, request, pk=None):
         prescription = self.get_object()

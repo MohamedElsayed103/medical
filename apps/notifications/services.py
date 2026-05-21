@@ -4,6 +4,8 @@ Notification service layer.
 import structlog
 from django.utils import timezone
 
+from django.utils.timezone import localtime
+
 from common.enums import NotificationChannel
 
 from .channels import EmailChannel, InAppChannel, PushChannel, SMSChannel
@@ -44,6 +46,24 @@ class NotificationService:
             )
             channel = NotificationChannel.IN_APP
 
+        # Respect quiet hours — downgrade to in_app during quiet hours
+        if prefs and prefs.quiet_hours_start and prefs.quiet_hours_end:
+            now_time = localtime(timezone.now()).time()
+            start = prefs.quiet_hours_start
+            end = prefs.quiet_hours_end
+            in_quiet = (
+                (start <= now_time or now_time < end)
+                if start > end  # overnight range (e.g., 22:00 - 07:00)
+                else (start <= now_time < end)
+            )
+            if in_quiet and channel != NotificationChannel.IN_APP:
+                logger.info(
+                    "notification_quiet_hours",
+                    recipient_id=recipient_id,
+                    channel=channel,
+                )
+                channel = NotificationChannel.IN_APP
+
         notification = Notification.objects.create(
             recipient_id=recipient_id,
             notification_type=notification_type,
@@ -55,11 +75,42 @@ class NotificationService:
 
         adapter = CHANNEL_ADAPTERS.get(channel)
         if adapter:
-            sent = adapter.send(title=title, body=body, data=data)
+            sent = adapter.send(
+                recipient_id=recipient_id,
+                title=title,
+                body=body,
+                data=data,
+            )
             if sent:
                 notification.is_sent = True
                 notification.sent_at = timezone.now()
                 notification.save(update_fields=["is_sent", "sent_at", "updated_at"])
+
+        # Push real-time WebSocket event
+        try:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    f"user_{recipient_id}",
+                    {
+                        "type": "new_notification",
+                        "notification": {
+                            "id": str(notification.id),
+                            "title": title,
+                            "body": body,
+                            "notification_type": notification_type,
+                            "channel": channel,
+                            "is_read": False,
+                            "created_at": notification.created_at.isoformat(),
+                            "data": data or {},
+                        },
+                    },
+                )
+        except Exception as exc:
+            logger.warning("ws_notification_failed", error=str(exc))
 
         return notification
 
