@@ -21,6 +21,26 @@ export default function UsersPage() {
     }
   }
 
+  const getUserDisplayName = (user: any) => {
+    if (user.display_name) return user.display_name
+    if (user.first_name || user.last_name) return `${user.first_name || ''} ${user.last_name || ''}`.trim()
+    if (user.user_name) return user.user_name
+    return user.email || user.user_email || 'Unknown'
+  }
+
+  const getUserEmail = (user: any) => {
+    return user.email || user.user_email || ''
+  }
+
+  const getUserInitials = (user: any) => {
+    const name = getUserDisplayName(user)
+    return name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+  }
+
+  const getUserRoleId = (user: any) => {
+    return user.role || user.role_id || ''
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -36,17 +56,17 @@ export default function UsersPage() {
             {data.results.map(user => (
               <div key={user.id} className="flex items-center gap-4 p-5">
                 <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-sm font-semibold text-primary-700">
-                  {user.user_name?.split(' ').map(n => n[0]).join('').slice(0, 2) || user.user_email?.[0]?.toUpperCase()}
+                  {getUserInitials(user)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900">{user.user_name || user.user_email}</p>
-                  <p className="text-sm text-gray-500">{user.user_email}</p>
+                  <p className="font-medium text-gray-900">{getUserDisplayName(user)}</p>
+                  <p className="text-sm text-gray-500">{getUserEmail(user)}</p>
                   {user.specialty && <p className="text-xs text-gray-400">{user.specialty}</p>}
                 </div>
                 <div className="flex items-center gap-3">
                   {editingUser === user.id ? (
                     <select
-                      defaultValue={user.role_id}
+                      defaultValue={getUserRoleId(user)}
                       onChange={(e) => handleRoleChange(user.id, e.target.value)}
                       onBlur={() => setEditingUser(null)}
                       className="input-field text-sm w-auto"
@@ -58,14 +78,14 @@ export default function UsersPage() {
                     </select>
                   ) : (
                     <span className="px-2.5 py-1 bg-primary-50 text-primary-700 rounded-full text-xs font-medium">
-                      {user.role_name}
+                      {user.role_name || 'No role'}
                     </span>
                   )}
                   <span className={`px-2 py-0.5 rounded-full text-xs ${
-                    user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                  }`}>{user.status}</span>
+                    user.status === 'ACTIVE' || user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                  }`}>{(user.status || 'active').toLowerCase()}</span>
                   <div className="relative">
-                    <button onClick={() => setEditingUser(editingUser === user.id ? null : user.id)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                    <button onClick={() => setEditingUser(editingUser === user.id ? null : user.id)} className="p-1.5 hover:bg-gray-100 rounded-lg" title="Change role">
                       <MoreVertical className="w-4 h-4 text-gray-400" />
                     </button>
                   </div>

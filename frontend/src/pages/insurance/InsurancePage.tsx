@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { format } from 'date-fns'
 import { Shield, Plus, Search, Building2, FileCheck, Users, CheckCircle, XCircle } from 'lucide-react'
+import { safeFormat } from '@/lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { insuranceService } from '@/services/api'
 import { usePatients } from '@/hooks/usePatients'
@@ -167,8 +167,8 @@ function PoliciesTab({ search, showCreate, setShowCreate }: { search: string; sh
                 <td className="px-5 py-3 font-mono text-sm">{p.policy_number}</td>
                 <td className="px-5 py-3 text-sm">{p.patient_name || '-'}</td>
                 <td className="px-5 py-3 text-sm">{p.provider_name || '-'}</td>
-                <td className="px-5 py-3 text-center text-sm">${Number(p.coverage_amount || 0).toLocaleString()}</td>
-                <td className="px-5 py-3 text-center text-sm">{p.end_date ? format(new Date(p.end_date), 'MMM d, yyyy') : '-'}</td>
+                <td className="px-5 py-3 text-center text-sm">${Number(p.coverage_limit || p.coverage_amount || 0).toLocaleString()}</td>
+                <td className="px-5 py-3 text-center text-sm">{safeFormat(p.expiration_date || p.end_date, 'MMM d, yyyy', '-')}</td>
                 <td className="px-5 py-3 text-center">
                   <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{p.status}</span>
                 </td>
@@ -255,11 +255,11 @@ function ClaimsTab({ search, showCreate, setShowCreate }: { search: string; show
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-gray-900">Claim #{c.claim_number || c.id.slice(0, 8)}</p>
-                    <p className="text-sm text-gray-500">{c.diagnosis || c.description || 'No description'}</p>
-                    <p className="text-xs text-gray-400 mt-1">Submitted: {format(new Date(c.created_at), 'MMM d, yyyy')}</p>
+                    <p className="text-sm text-gray-500">{c.diagnosis || c.notes || c.description || 'No description'}</p>
+                    <p className="text-xs text-gray-400 mt-1">Submitted: {safeFormat(c.created_at, 'MMM d, yyyy')}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">${Number(c.amount || 0).toLocaleString()}</p>
+                    <p className="font-semibold text-gray-900">${Number(c.amount_claimed || c.amount || 0).toLocaleString()}</p>
                     <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${statusColors[c.status] || 'bg-gray-100 text-gray-600'}`}>{c.status}</span>
                     {c.status === 'pending' && (
                       <div className="flex gap-2 mt-2 justify-end">

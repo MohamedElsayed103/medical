@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { format } from 'date-fns'
 import { Pill, Plus, Search, Package, AlertTriangle, TrendingDown, CheckCircle } from 'lucide-react'
+import { safeFormat } from '@/lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { pharmacyService } from '@/services/api'
 import toast from 'react-hot-toast'
@@ -36,7 +36,7 @@ export default function PharmacyPage() {
 
   const dispenseItem = useMutation({
     mutationFn: ({ id, quantity }: { id: string; quantity: number }) =>
-      pharmacyService.dispense({ prescription_item_id: id, quantity }),
+      pharmacyService.dispense({ inventory_id: id, quantity }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pharmacy'] })
       toast.success('Item dispensed successfully')
@@ -46,7 +46,7 @@ export default function PharmacyPage() {
     onError: (error: any) => toast.error(error?.response?.data?.detail || 'Failed to dispense'),
   })
 
-  const lowStockCount = inventory?.results?.filter((i: any) => i.quantity <= i.reorder_level).length || 0
+  const lowStockCount = inventory?.results?.filter((i: any) => (i.quantity_on_hand ?? i.quantity) <= (i.reorder_level ?? 10)).length || 0
   const totalItems = inventory?.count || 0
 
   return (
@@ -140,23 +140,24 @@ export default function PharmacyPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {inventory.results.map((item: any) => {
-                const isLow = item.quantity <= item.reorder_level
+                const qty = item.quantity_on_hand ?? item.quantity ?? 0
+                const reorder = item.reorder_level ?? 10
+                const isLow = qty <= reorder
                 const isExpired = item.expiry_date && new Date(item.expiry_date) < new Date()
                 return (
                   <motion.tr key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50">
                     <td className="px-5 py-3">
-                      <p className="font-medium text-gray-900">{item.name}</p>
-                      <p className="text-xs text-gray-500">{item.generic_name || item.manufacturer}</p>
+                      <p className="font-medium text-gray-900">{item.medication_name || item.name || '—'}</p>
+                      <p className="text-xs text-gray-500">{item.medication_generic || item.generic_name || ''}</p>
                     </td>
-                    <td className="px-5 py-3 text-sm text-gray-600">{item.category || '-'}</td>
+                    <td className="px-5 py-3 text-sm text-gray-600">{item.location || '-'}</td>
                     <td className="px-5 py-3 text-center">
-                      <span className={`font-semibold ${isLow ? 'text-red-600' : 'text-gray-900'}`}>{item.quantity}</span>
-                      <span className="text-xs text-gray-400 ml-1">{item.unit}</span>
+                      <span className={`font-semibold ${isLow ? 'text-red-600' : 'text-gray-900'}`}>{qty}</span>
                     </td>
-                    <td className="px-5 py-3 text-center text-sm text-gray-600">{item.reorder_level}</td>
-                    <td className="px-5 py-3 text-center text-sm text-gray-600">${item.unit_price}</td>
+                    <td className="px-5 py-3 text-center text-sm text-gray-600">{reorder}</td>
+                    <td className="px-5 py-3 text-center text-sm text-gray-600">${item.unit_cost || item.unit_price || '0.00'}</td>
                     <td className="px-5 py-3 text-center text-sm text-gray-600">
-                      {item.expiry_date ? format(new Date(item.expiry_date), 'MMM d, yyyy') : '-'}
+                      {safeFormat(item.expiry_date, 'MMM d, yyyy', '-')}
                     </td>
                     <td className="px-5 py-3 text-center">
                       {isExpired ? (
@@ -234,7 +235,7 @@ export default function PharmacyPage() {
           <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
             className="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
             <h2 className="text-lg font-bold text-gray-900 mb-2">Dispense Medication</h2>
-            <p className="text-sm text-gray-500 mb-4">{selectedItem.name} — Available: {selectedItem.quantity} {selectedItem.unit}</p>
+            <p className="text-sm text-gray-500 mb-4">{selectedItem.medication_name || selectedItem.name} — Available: {selectedItem.quantity_on_hand ?? selectedItem.quantity} units</p>
             <form onSubmit={(e) => {
               e.preventDefault()
               const fd = new FormData(e.currentTarget)
@@ -242,7 +243,7 @@ export default function PharmacyPage() {
             }}>
               <div className="mb-4">
                 <label className="text-sm font-medium text-gray-700 mb-1 block">Quantity to Dispense</label>
-                <input name="quantity" type="number" min="1" max={selectedItem.quantity} required className="input-field" />
+                <input name="quantity" type="number" min="1" max={selectedItem.quantity_on_hand ?? selectedItem.quantity} required className="input-field" />
               </div>
               <div className="flex justify-end gap-3">
                 <button type="button" onClick={() => { setShowDispenseModal(false); setSelectedItem(null) }} className="btn-secondary">Cancel</button>

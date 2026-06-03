@@ -86,10 +86,10 @@ export const rbacService = {
   getRole: (id: string) =>
     api.get<Role>(`/rbac/roles/${id}/`).then(r => r.data),
 
-  createRole: (data: { name: string; description?: string; permissions?: string[] }) =>
+  createRole: (data: { name: string; description?: string; permission_ids?: string[] }) =>
     api.post<Role>('/rbac/roles/', data).then(r => r.data),
 
-  updateRole: (id: string, data: Partial<{ name: string; description: string; permissions: string[] }>) =>
+  updateRole: (id: string, data: Partial<{ name: string; description: string; permission_ids: string[] }>) =>
     api.patch<Role>(`/rbac/roles/${id}/`, data).then(r => r.data),
 
   deleteRole: (id: string) =>
@@ -110,7 +110,7 @@ export const rbacService = {
     api.patch<TenantUser>(`/rbac/users/${id}/`, data).then(r => r.data),
 
   deleteUser: (id: string) =>
-    api.delete(`/rbac/users/${id}/`).then(r => r.data),
+    api.post(`/rbac/users/${id}/remove/`).then(r => r.data),
 
   // Invitations
   getInvitations: (params?: Record<string, string>) =>
@@ -351,10 +351,10 @@ export const notificationsService = {
     api.get<PaginatedResponse<Notification>>('/notifications/', { params }).then(r => r.data),
 
   markAsRead: (id: string) =>
-    api.patch<Notification>(`/notifications/${id}/`, { is_read: true }).then(r => r.data),
+    api.post<Notification>(`/notifications/${id}/mark_read/`).then(r => r.data),
 
   markAllAsRead: () =>
-    api.post('/notifications/mark-all-read/').then(r => r.data),
+    api.post('/notifications/mark_all_read/').then(r => r.data),
 
   getPreferences: () =>
     api.get<NotificationPreferences>('/notifications/preferences/').then(r => r.data),
@@ -390,8 +390,8 @@ export const pharmacyService = {
   getDispenseQueue: () =>
     api.get('/pharmacy/dispense-queue/').then(r => r.data),
 
-  dispense: (data: { prescription_item_id: string; quantity: number; notes?: string }) =>
-    api.post('/pharmacy/dispense/', data).then(r => r.data),
+  dispense: (data: { inventory_id: string; quantity: number; notes?: string }) =>
+    api.post(`/pharmacy/inventory/${data.inventory_id}/dispense/`, { quantity: data.quantity, notes: data.notes }).then(r => r.data),
 
   updateInventory: (id: string, data: Partial<PharmacyItem>) =>
     api.patch(`/pharmacy/inventory/${id}/`, data).then(r => r.data),

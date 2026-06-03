@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { format } from 'date-fns'
 import { ArrowLeft, CheckCircle, Plus, Heart, Thermometer, Activity } from 'lucide-react'
+import { safeFormat } from '@/lib/utils'
 import { useVisit, useSignVisit, useAddVitals, useAddDiagnosis } from '@/hooks/useVisits'
 import { useForm } from 'react-hook-form'
 import type { VitalsCreateRequest, DiagnosisCreateRequest } from '@/types'
@@ -48,7 +48,7 @@ export default function VisitDetailPage() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">{visit.chief_complaint}</h1>
           <p className="text-sm text-gray-500">
-            {visit.patient_name} • Dr. {visit.doctor_name} • {format(new Date(visit.visit_date), 'MMM d, yyyy h:mm a')}
+            {visit.patient_name} • Dr. {visit.doctor_name} • {safeFormat(visit.visit_date, 'MMM d, yyyy h:mm a')}
           </p>
         </div>
         <span className={`px-3 py-1 rounded-full text-sm font-medium ${visit.is_signed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
@@ -78,7 +78,7 @@ export default function VisitDetailPage() {
             <div><p className="text-xs font-semibold text-gray-500 uppercase mb-1">Plan</p><p className="text-sm text-gray-700 whitespace-pre-wrap">{visit.plan}</p></div>
           )}
           {visit.follow_up_date && (
-            <div className="pt-3 border-t"><p className="text-sm"><span className="font-medium">Follow-up:</span> {format(new Date(visit.follow_up_date), 'MMM d, yyyy')}</p></div>
+            <div className="pt-3 border-t"><p className="text-sm"><span className="font-medium">Follow-up:</span> {safeFormat(visit.follow_up_date, 'MMM d, yyyy')}</p></div>
           )}
         </motion.div>
 

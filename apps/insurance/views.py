@@ -70,12 +70,14 @@ class InsuranceClaimViewSet(viewsets.ModelViewSet):
 
         from apps.billing.models import Invoice
 
-        try:
-            invoice = Invoice.objects.get(pk=ser.validated_data["invoice"])
-        except Invoice.DoesNotExist:
-            return Response(
-                {"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND
-            )
+        invoice = None
+        if ser.validated_data.get("invoice"):
+            try:
+                invoice = Invoice.objects.get(pk=ser.validated_data["invoice"])
+            except Invoice.DoesNotExist:
+                return Response(
+                    {"detail": "Invoice not found."}, status=status.HTTP_404_NOT_FOUND
+                )
 
         try:
             patient_ins = PatientInsurance.objects.get(

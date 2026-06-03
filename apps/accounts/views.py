@@ -152,6 +152,11 @@ class LoginView(APIView):
         refresh = RefreshToken.for_user(user)
         tenant_mappings = AccountService.get_user_tenant_mappings(user)
 
+        # Update last_login
+        from django.utils import timezone as tz
+        user.last_login = tz.now()
+        user.save(update_fields=["last_login"])
+
         return Response({
             "user": {
                 "id": str(user.id),
@@ -233,6 +238,7 @@ class MeView(APIView):
             "display_name": user.display_name,
             "phone": user.phone,
             "is_active": user.is_active,
+            "last_login": user.last_login.isoformat() if user.last_login else None,
             "created_at": user.created_at,
             "tenants": [
                 {

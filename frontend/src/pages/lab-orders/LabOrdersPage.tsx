@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { format } from 'date-fns'
 import { Plus, Search, FlaskConical, AlertCircle } from 'lucide-react'
+import { safeFormat } from '@/lib/utils'
 import { useLabOrders, useCreateLabOrder, useLabOrderAction } from '@/hooks/useLabOrders'
 import { usePatients } from '@/hooks/usePatients'
 import { useDoctors } from '@/hooks/useAppointments'
@@ -81,7 +81,7 @@ export default function LabOrdersPage() {
                     {order.priority === 'urgent' && <span className="text-xs px-1.5 py-0.5 bg-red-100 text-red-700 rounded">Urgent</span>}
                   </div>
                   <p className="text-sm text-gray-500">
-                    {order.patient_name} • Dr. {order.doctor_name} • {order.tests?.length || 0} test(s)
+                    {order.patient_name} • Dr. {order.doctor_name} • {order.test_count ?? order.tests?.length ?? 0} test(s)
                   </p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {order.tests?.slice(0, 3).map((t, i) => (
@@ -93,7 +93,7 @@ export default function LabOrdersPage() {
                   <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                     {order.status?.replace('_', ' ')}
                   </span>
-                  <p className="text-xs text-gray-400">{format(new Date(order.created_at), 'MMM d')}</p>
+                  <p className="text-xs text-gray-400">{safeFormat(order.created_at, 'MMM d')}</p>
                 </div>
                 {/* Workflow Actions */}
                 <div className="flex flex-col gap-1">

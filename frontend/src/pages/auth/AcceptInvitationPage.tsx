@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { motion } from 'framer-motion'
 import { Heart, Building2, UserCheck } from 'lucide-react'
 import { authService } from '@/services/api'
+import { useAuthStore } from '@/stores/authStore'
 import type { InvitationInfo } from '@/types'
 
 const acceptSchema = z.object({
@@ -23,6 +24,7 @@ type AcceptForm = z.infer<typeof acceptSchema>
 export default function AcceptInvitationPage() {
   const { token } = useParams<{ token: string }>()
   const navigate = useNavigate()
+  const { logout } = useAuthStore()
   const [info, setInfo] = useState<InvitationInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -49,6 +51,7 @@ export default function AcceptInvitationPage() {
         last_name: data.last_name,
       })
       setSuccess(true)
+      logout()
       setTimeout(() => navigate('/login'), 2000)
     } catch (err: any) {
       setError(err?.response?.data?.detail || 'Failed to accept invitation')

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { format } from 'date-fns'
 import { Brain, Send, Sparkles, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { safeFormat } from '@/lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { aiService } from '@/services/api'
 import { usePatients } from '@/hooks/usePatients'
@@ -165,7 +165,7 @@ export default function AIPage() {
                         {getStatusIcon(req.status)}
                         <span className="text-sm font-medium text-gray-900 capitalize">{req.request_type?.replace('_', ' ')}</span>
                       </div>
-                      <span className="text-xs text-gray-400">{format(new Date(req.created_at), 'MMM d, h:mm a')}</span>
+                      <span className="text-xs text-gray-400">{safeFormat(req.created_at, 'MMM d, h:mm a')}</span>
                     </div>
 
                     {/* Input */}

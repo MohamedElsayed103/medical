@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { format } from 'date-fns'
 import { Plus, Search, FileText, CheckCircle } from 'lucide-react'
+import { safeFormat } from '@/lib/utils'
 import { useVisits } from '@/hooks/useVisits'
 import CreateVisitModal from './CreateVisitModal'
 
@@ -73,7 +73,7 @@ export default function VisitsPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900">{visit.chief_complaint}</p>
                   <p className="text-sm text-gray-500">
-                    {visit.patient_name} • Dr. {visit.doctor_name} • {format(new Date(visit.visit_date), 'MMM d, yyyy')}
+                    {visit.patient_name} • Dr. {visit.doctor_name} • {safeFormat(visit.visit_date, 'MMM d, yyyy')}
                   </p>
                   {visit.assessment && (
                     <p className="text-xs text-gray-400 mt-0.5 truncate">{visit.assessment}</p>

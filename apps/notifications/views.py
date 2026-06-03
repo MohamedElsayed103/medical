@@ -28,6 +28,7 @@ class NotificationViewSet(
     serializer_class = NotificationSerializer
     permission_classes = [IsTenantMember]
     ordering = ["-created_at"]
+    filterset_fields = ["is_read"]
 
     def get_queryset(self):
         return Notification.objects.filter(recipient_id=self.request.user.id)

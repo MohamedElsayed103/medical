@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { format } from 'date-fns'
 import { Bell, Check, CheckCheck, Settings, Mail, MessageSquare, Smartphone } from 'lucide-react'
+import { safeFormat } from '@/lib/utils'
 import { useNotifications, useMarkAsRead, useMarkAllAsRead, useNotificationPreferences, useUpdateNotificationPreferences } from '@/hooks/useNotifications'
 
 export default function NotificationsPage() {
@@ -98,7 +98,7 @@ export default function NotificationsPage() {
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm ${!notif.is_read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>{notif.title}</p>
                   <p className="text-sm text-gray-500 mt-0.5">{notif.body}</p>
-                  <p className="text-xs text-gray-400 mt-1">{format(new Date(notif.created_at), 'MMM d, yyyy h:mm a')}</p>
+                  <p className="text-xs text-gray-400 mt-1">{safeFormat(notif.created_at, 'MMM d, yyyy h:mm a')}</p>
                 </div>
                 {!notif.is_read && (
                   <button onClick={() => markAsRead.mutate(notif.id)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-primary-600" title="Mark as read">

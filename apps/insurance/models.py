@@ -102,6 +102,8 @@ class InsuranceClaim(BaseModel):
         "billing.Invoice",
         on_delete=models.CASCADE,
         related_name="insurance_claims",
+        null=True,
+        blank=True,
     )
     patient_insurance = models.ForeignKey(
         PatientInsurance,

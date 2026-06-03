@@ -42,5 +42,9 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {  # noqa: F405
     "user": "5000/min",
 }
 
-# Email — console backend for dev
+# Email — console backend for dev (emails printed directly in terminal)
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "noreply@medflow.com"
+
+# Also print invitation links to console to make it easy for dev 
+INVITATION_BASE_URL = "http://localhost:5173/invitation"

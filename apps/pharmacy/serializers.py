@@ -40,14 +40,36 @@ class PharmacyInventorySerializer(serializers.ModelSerializer):
 
 
 class PharmacyInventoryCreateSerializer(serializers.Serializer):
-    medication_id = serializers.UUIDField()
-    batch_number = serializers.CharField(max_length=100, required=False, default="")
+    medication_id = serializers.UUIDField(required=False, allow_null=True)
+    # Allow direct creation by name if medication_id not provided
+    name = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    generic_name = serializers.CharField(max_length=255, required=False, allow_blank=True, default="")
+    batch_number = serializers.CharField(max_length=100, required=False, default="", allow_blank=True)
     expiry_date = serializers.DateField(required=False, allow_null=True)
     quantity_on_hand = serializers.IntegerField(min_value=0, default=0)
     reorder_level = serializers.IntegerField(min_value=0, default=10)
     reorder_quantity = serializers.IntegerField(min_value=0, default=50)
     unit_cost = serializers.DecimalField(max_digits=10, decimal_places=2, default=0)
-    location = serializers.CharField(max_length=200, required=False, default="")
+    location = serializers.CharField(max_length=200, required=False, default="", allow_blank=True)
+    # Frontend aliases
+    quantity = serializers.IntegerField(min_value=0, required=False)
+    unit_price = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        # Map frontend aliases
+        if "quantity" in attrs and attrs["quantity"] is not None:
+            attrs["quantity_on_hand"] = attrs.pop("quantity")
+        else:
+            attrs.pop("quantity", None)
+        if "unit_price" in attrs and attrs["unit_price"]:
+            from decimal import Decimal
+            attrs["unit_cost"] = Decimal(attrs.pop("unit_price"))
+        else:
+            attrs.pop("unit_price", None)
+
+        if not attrs.get("medication_id") and not attrs.get("name"):
+            raise serializers.ValidationError("Either medication_id or name is required.")
+        return attrs
 
 
 class StockTransactionSerializer(serializers.ModelSerializer):
@@ -68,8 +90,8 @@ class StockTransactionSerializer(serializers.ModelSerializer):
 
 class ReceiveStockSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=1)
-    reference = serializers.CharField(max_length=255, required=False, default="")
-    reason = serializers.CharField(required=False, default="")
+    reference = serializers.CharField(max_length=255, required=False, default="", allow_blank=True)
+    reason = serializers.CharField(required=False, default="", allow_blank=True)
 
 
 class AdjustStockSerializer(serializers.Serializer):

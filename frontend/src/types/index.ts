@@ -71,7 +71,8 @@ export interface Role {
   id: string
   name: string
   description: string
-  is_system_role: boolean
+  is_system_role?: boolean
+  is_system?: boolean
   permissions: Permission[]
   user_count?: number
   created_at: string
@@ -419,6 +420,7 @@ export interface LabOrder {
   priority: string
   clinical_notes: string | null
   tests: LabTest[]
+  test_count?: number
   ordered_at: string
   completed_at: string | null
   created_at: string

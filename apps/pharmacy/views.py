@@ -31,12 +31,21 @@ class PharmacyInventoryViewSet(ModelViewSet):
     Custom actions: receive, adjust
     """
 
-    queryset = PharmacyInventory.objects.select_related("medication").all()
     serializer_class = PharmacyInventorySerializer
     permission_classes = [IsNurseOrAbove]
     search_fields = ["medication__name", "medication__generic_name", "batch_number"]
     ordering_fields = ["medication__name", "quantity_on_hand", "expiry_date"]
     ordering = ["medication__name"]
+
+    def get_queryset(self):
+        qs = PharmacyInventory.objects.select_related("medication").all()
+        if self.request.query_params.get("low_stock"):
+            from django.db.models import F
+            qs = qs.filter(quantity_on_hand__lte=F("reorder_level"))
+        if self.request.query_params.get("expired"):
+            from django.utils import timezone
+            qs = qs.filter(expiry_date__lte=timezone.now().date())
+        return qs
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -48,7 +57,24 @@ class PharmacyInventoryViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
-        medication = Medication.objects.get(pk=data.pop("medication_id"))
+        # Remove non-model fields
+        name = data.pop("name", "")
+        generic_name = data.pop("generic_name", "")
+
+        if data.get("medication_id"):
+            medication = Medication.objects.get(pk=data.pop("medication_id"))
+        else:
+            # Find or create medication by name
+            medication, _ = Medication.objects.get_or_create(
+                name=name,
+                defaults={
+                    "generic_name": generic_name or name,
+                    "form": "tablet",
+                    "strength": "N/A",
+                },
+            )
+            data.pop("medication_id", None)
+
         inventory = PharmacyInventory.objects.create(
             medication=medication, **data
         )
@@ -102,6 +128,34 @@ class PharmacyInventoryViewSet(ModelViewSet):
                 StockTransactionSerializer(page, many=True).data
             )
         return Response(StockTransactionSerializer(txns, many=True).data)
+
+    @action(detail=True, methods=["post"])
+    def dispense(self, request, pk=None):
+        """POST /api/v1/pharmacy/inventory/{id}/dispense/ — dispense stock."""
+        inventory = self.get_object()
+        quantity = request.data.get("quantity")
+        if not quantity or int(quantity) <= 0:
+            return Response(
+                {"detail": "A positive quantity is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        quantity = int(quantity)
+        if quantity > inventory.quantity_on_hand:
+            return Response(
+                {"detail": "Insufficient stock."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        reason = request.data.get("notes") or "Dispensed"
+        txn = PharmacyService.adjust_stock(
+            inventory=inventory,
+            performed_by_id=str(request.user.id),
+            quantity=-quantity,
+            reason=reason,
+        )
+        return Response(
+            StockTransactionSerializer(txn).data,
+            status=status.HTTP_200_OK,
+        )
 
 
 class LowStockView(APIView):

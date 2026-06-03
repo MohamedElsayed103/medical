@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { format } from 'date-fns'
 import { Plus, Search, Pill } from 'lucide-react'
+import { safeFormat } from '@/lib/utils'
 import { usePrescriptions, useCreatePrescription, useMedications } from '@/hooks/usePrescriptions'
 import { usePatients } from '@/hooks/usePatients'
 import { useDoctors } from '@/hooks/useAppointments'
@@ -48,7 +48,7 @@ export default function PrescriptionsPage() {
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900">{rx.patient_name}</p>
                   <p className="text-sm text-gray-500">
-                    Dr. {rx.doctor_name} • {rx.items?.length || 0} medication(s) • {format(new Date(rx.created_at), 'MMM d, yyyy')}
+                    Dr. {rx.doctor_name} • {rx.items?.length || 0} medication(s) • {safeFormat(rx.created_at, 'MMM d, yyyy')}
                   </p>
                   {rx.items?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">

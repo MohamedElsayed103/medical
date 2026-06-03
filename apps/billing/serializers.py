@@ -47,8 +47,8 @@ class PaymentSerializer(serializers.ModelSerializer):
 class PaymentInputSerializer(serializers.Serializer):
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
     method = serializers.CharField(max_length=20)
-    reference_number = serializers.CharField(max_length=100, required=False, default="")
-    notes = serializers.CharField(required=False, default="")
+    reference_number = serializers.CharField(max_length=100, required=False, default="", allow_blank=True)
+    notes = serializers.CharField(required=False, default="", allow_blank=True)
 
 
 class InvoiceSerializer(serializers.ModelSerializer):
@@ -102,7 +102,7 @@ class InvoiceCreateSerializer(serializers.Serializer):
     discount_amount = serializers.DecimalField(
         max_digits=12, decimal_places=2, default=Decimal("0.00"), min_value=Decimal("0.00")
     )
-    notes = serializers.CharField(required=False, default="")
+    notes = serializers.CharField(required=False, default="", allow_blank=True)
     items = InvoiceItemInputSerializer(many=True, min_length=1)
 
 

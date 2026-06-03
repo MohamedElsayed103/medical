@@ -182,6 +182,7 @@ class UserInvitationSerializer(serializers.ModelSerializer):
     invited_by_name = serializers.CharField(
         source="invited_by.display_name", read_only=True
     )
+    invite_url = serializers.SerializerMethodField()
 
     class Meta:
         model = UserInvitation
@@ -190,12 +191,17 @@ class UserInvitationSerializer(serializers.ModelSerializer):
             "invited_by", "invited_by_name",
             "token", "expires_at", "status",
             "accepted_at", "cancelled_at", "metadata",
-            "created_at",
+            "created_at", "invite_url",
         ]
         read_only_fields = [
             "id", "invited_by", "token", "expires_at",
             "status", "accepted_at", "cancelled_at", "created_at",
         ]
+
+    def get_invite_url(self, obj):
+        from django.conf import settings
+        base = getattr(settings, 'INVITATION_BASE_URL', 'http://localhost:3002/invitation')
+        return f"{base}/{obj.token}"
 
 
 class CreateInvitationSerializer(serializers.Serializer):

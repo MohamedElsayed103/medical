@@ -9,7 +9,7 @@ import api from '@/lib/api'
 import { rbacService } from '@/services/api'
 
 export default function DashboardLayout() {
-  const { sidebarOpen, sidebarCollapsed } = useUIStore()
+  const { sidebarOpen } = useUIStore()
   const { setUser, setRbacContext, currentTenant } = useAuthStore()
   const location = useLocation()
 
@@ -49,6 +49,17 @@ export default function DashboardLayout() {
     }
   }, [location.pathname, setSidebarOpen])
 
+  // Handle window resize — close sidebar when resizing to mobile
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarOpen(false)
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [setSidebarOpen])
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       {/* Sidebar */}
@@ -63,9 +74,7 @@ export default function DashboardLayout() {
       )}
       
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
-        sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-72'
-      }`}>
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <TopBar />
         
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">

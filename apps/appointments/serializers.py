@@ -9,11 +9,14 @@ from .models import Appointment, DoctorProfile
 
 
 class DoctorProfileSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+
     class Meta:
         model = DoctorProfile
         fields = [
             "id",
             "user_id",
+            "user_name",
             "specialization",
             "license_number",
             "qualification",
@@ -25,6 +28,15 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+    def get_user_name(self, obj) -> str:
+        from apps.accounts.models import User
+        try:
+            user = User.objects.get(pk=obj.user_id)
+            name = f"{user.first_name} {user.last_name}".strip()
+            return name or user.email
+        except User.DoesNotExist:
+            return "Unknown"
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
@@ -65,7 +77,7 @@ class BookAppointmentSerializer(serializers.Serializer):
     scheduled_at = serializers.DateTimeField()
     duration_minutes = serializers.IntegerField(default=30, min_value=10, max_value=240)
     type = serializers.ChoiceField(choices=AppointmentType.choices, default=AppointmentType.IN_PERSON)
-    reason = serializers.CharField(required=False, default="")
+    reason = serializers.CharField(required=False, default="", allow_blank=True)
 
 
 class RescheduleSerializer(serializers.Serializer):
@@ -74,7 +86,7 @@ class RescheduleSerializer(serializers.Serializer):
 
 
 class CancelSerializer(serializers.Serializer):
-    reason = serializers.CharField(required=False, default="")
+    reason = serializers.CharField(required=False, default="", allow_blank=True)
 
 
 class AvailableSlotsSerializer(serializers.Serializer):

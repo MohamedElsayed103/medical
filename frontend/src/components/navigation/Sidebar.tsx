@@ -55,8 +55,9 @@ export default function Sidebar() {
       transition={{ duration: 0.3, ease: 'easeInOut' }}
       className={cn(
         'fixed inset-y-0 left-0 z-40 flex flex-col bg-white border-r border-slate-100',
-        'lg:relative lg:translate-x-0'
+        'lg:relative lg:z-0'
       )}
+      style={{ flexShrink: 0 }}
     >
       {/* Logo */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-slate-100">

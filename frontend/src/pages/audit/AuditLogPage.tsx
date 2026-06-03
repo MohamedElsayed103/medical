@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { format } from 'date-fns'
 import { Activity, Search } from 'lucide-react'
+import { safeFormat } from '@/lib/utils'
 import { useAuditLogs } from '@/hooks/useAudit'
 
 export default function AuditLogPage() {
@@ -62,7 +62,7 @@ export default function AuditLogPage() {
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-xs text-gray-500">{format(new Date(log.created_at || log.timestamp), 'MMM d, h:mm a')}</p>
+                  <p className="text-xs text-gray-500">{safeFormat(log.created_at || log.timestamp, 'MMM d, h:mm a')}</p>
                   {log.ip_address && <p className="text-xs text-gray-400">{log.ip_address}</p>}
                 </div>
               </div>

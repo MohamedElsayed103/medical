@@ -382,6 +382,31 @@ class InvitationService:
             role=role.name,
             expires_in_days=INVITATION_EXPIRY_DAYS,
         )
+
+        # Send invitation email
+        try:
+            from django.core.mail import send_mail
+            from django.conf import settings
+
+            invite_url = f"{getattr(settings, 'INVITATION_BASE_URL', 'http://localhost:3002/invitation')}/{token}"
+            send_mail(
+                subject=f"You've been invited to join as {role.name}",
+                message=(
+                    f"Hello,\n\n"
+                    f"You have been invited to join as a {role.name}.\n\n"
+                    f"Click the link below to accept your invitation:\n"
+                    f"{invite_url}\n\n"
+                    f"This invitation expires in {INVITATION_EXPIRY_DAYS} days.\n\n"
+                    f"If you did not expect this invitation, you can ignore this email."
+                ),
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@healthsaas.com'),
+                recipient_list=[email],
+                fail_silently=True,
+            )
+            logger.info("invitation_email_sent", email=email)
+        except Exception as e:
+            logger.warning("invitation_email_failed", email=email, error=str(e))
+
         return invitation
 
     @staticmethod

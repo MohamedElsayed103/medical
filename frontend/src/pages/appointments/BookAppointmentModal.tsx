@@ -32,7 +32,7 @@ export default function BookAppointmentModal({ isOpen, onClose }: Props) {
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<BookForm>({
     resolver: zodResolver(bookSchema),
-    defaultValues: { duration_minutes: 30, type: 'IN_PERSON' },
+    defaultValues: { duration_minutes: 30, type: 'in_person' },
   })
 
   const selectedPatientId = watch('patient_id')
@@ -139,10 +139,8 @@ export default function BookAppointmentModal({ isOpen, onClose }: Props) {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                   <select {...register('type')} className="input-field">
-                    <option value="IN_PERSON">In Person</option>
-                    <option value="TELEMEDICINE">Telemedicine</option>
-                    <option value="FOLLOW_UP">Follow Up</option>
-                    <option value="EMERGENCY">Emergency</option>
+                    <option value="in_person">In Person</option>
+                    <option value="telehealth">Telehealth</option>
                   </select>
                 </div>
               </div>

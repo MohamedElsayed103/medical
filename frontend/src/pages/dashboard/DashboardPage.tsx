@@ -9,6 +9,13 @@ import { format } from 'date-fns'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { patientsService, appointmentsService, labOrdersService, billingService } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
+import { isValid, parseISO } from 'date-fns'
+
+function safeFormat(dateStr: string | null | undefined, fmt: string): string {
+  if (!dateStr) return '—'
+  const d = typeof dateStr === 'string' ? parseISO(dateStr) : new Date(dateStr)
+  return isValid(d) ? format(d, fmt) : '—'
+}
 
 export default function DashboardPage() {
   const { user, roleName } = useAuthStore()
@@ -22,7 +29,7 @@ export default function DashboardPage() {
 
   const { data: appointmentsData } = useQuery({
     queryKey: ['dashboard', 'appointments-today'],
-    queryFn: () => appointmentsService.getAll({ scheduled_date: today, page_size: 10 }),
+    queryFn: () => appointmentsService.getAll({ date: today, page_size: 10 }),
   })
 
   const { data: labData } = useQuery({
@@ -82,8 +89,10 @@ export default function DashboardPage() {
     if (!recentInvoices?.results) return []
     const byDay: Record<string, number> = {}
     recentInvoices.results.forEach(inv => {
-      const day = format(new Date(inv.created_at), 'MMM dd')
-      byDay[day] = (byDay[day] || 0) + Number(inv.total || 0)
+      const day = safeFormat(inv.created_at, 'MMM dd')
+      if (day !== '—') {
+        byDay[day] = (byDay[day] || 0) + Number(inv.total || 0)
+      }
     })
     return Object.entries(byDay).map(([name, revenue]) => ({ name, revenue }))
   })()
@@ -189,7 +198,7 @@ export default function DashboardPage() {
                       {apt.patient_name || 'Patient'}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {apt.scheduled_at ? format(new Date(apt.scheduled_at), 'h:mm a') : apt.reason || 'Appointment'}
+                      {apt.scheduled_at ? safeFormat(apt.scheduled_at, 'h:mm a') : apt.reason || 'Appointment'}
                     </p>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -247,7 +256,7 @@ export default function DashboardPage() {
                     </p>
                   </div>
                   <span className="text-xs text-gray-400">
-                    {format(new Date(patient.created_at), 'MMM d')}
+                    {safeFormat(patient.created_at, 'MMM d')}
                   </span>
                 </Link>
               ))

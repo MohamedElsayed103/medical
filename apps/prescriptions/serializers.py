@@ -47,6 +47,8 @@ class PrescriptionItemInputSerializer(serializers.Serializer):
 class PrescriptionSerializer(serializers.ModelSerializer):
     items = PrescriptionItemSerializer(many=True, read_only=True)
     patient_name = serializers.CharField(source="patient.full_name", read_only=True)
+    doctor_name = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
 
     class Meta:
         model = Prescription
@@ -56,9 +58,11 @@ class PrescriptionSerializer(serializers.ModelSerializer):
             "patient",
             "patient_name",
             "doctor",
+            "doctor_name",
             "prescribed_at",
             "notes",
             "is_dispensed",
+            "status",
             "dispensed_at",
             "items",
             "created_at",
@@ -73,6 +77,22 @@ class PrescriptionSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    def get_doctor_name(self, obj):
+        if obj.doctor:
+            from apps.accounts.models import User
+            try:
+                user = User.objects.get(pk=obj.doctor.user_id)
+                name = f"{user.first_name} {user.last_name}".strip()
+                return name or user.email
+            except User.DoesNotExist:
+                return obj.doctor.specialization
+        return ""
+
+    def get_status(self, obj):
+        if obj.is_dispensed:
+            return "dispensed"
+        return "active"
+
 
 class PrescriptionCreateSerializer(serializers.Serializer):
     patient_id = serializers.UUIDField()
@@ -84,7 +104,10 @@ class PrescriptionCreateSerializer(serializers.Serializer):
 
 class PrescriptionListSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source="patient.full_name", read_only=True)
+    doctor_name = serializers.SerializerMethodField()
     item_count = serializers.IntegerField(source="items.count", read_only=True)
+    items = PrescriptionItemSerializer(many=True, read_only=True)
+    status = serializers.SerializerMethodField()
 
     class Meta:
         model = Prescription
@@ -93,7 +116,27 @@ class PrescriptionListSerializer(serializers.ModelSerializer):
             "patient",
             "patient_name",
             "doctor",
+            "doctor_name",
             "prescribed_at",
             "is_dispensed",
+            "status",
             "item_count",
+            "items",
+            "created_at",
         ]
+
+    def get_doctor_name(self, obj):
+        if obj.doctor:
+            from apps.accounts.models import User
+            try:
+                user = User.objects.get(pk=obj.doctor.user_id)
+                name = f"{user.first_name} {user.last_name}".strip()
+                return name or user.email
+            except User.DoesNotExist:
+                return obj.doctor.specialization
+        return ""
+
+    def get_status(self, obj):
+        if obj.is_dispensed:
+            return "dispensed"
+        return "active"

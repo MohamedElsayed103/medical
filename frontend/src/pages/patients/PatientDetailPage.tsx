@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { format } from 'date-fns'
+import { format, parseISO, isValid } from 'date-fns'
 import {
   ArrowLeft, Edit2, Phone, Mail, MapPin, Heart, AlertTriangle,
   FileText, Pill, FlaskConical, DollarSign, User,
@@ -87,7 +87,7 @@ export default function PatientDetailPage() {
             </div>
             <div>
               <p className="font-semibold text-gray-900">{patient.first_name} {patient.last_name}</p>
-              <p className="text-sm text-gray-500 capitalize">{patient.gender} • {patient.date_of_birth ? format(new Date(patient.date_of_birth), 'MMM d, yyyy') : 'N/A'}</p>
+              <p className="text-sm text-gray-500 capitalize">{patient.gender} • {patient.date_of_birth && isValid(parseISO(patient.date_of_birth)) ? format(parseISO(patient.date_of_birth), 'MMM d, yyyy') : 'N/A'}</p>
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${
                 patient.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
               }`}>{patient.is_active ? 'Active' : 'Inactive'}</span>
@@ -197,7 +197,7 @@ export default function PatientDetailPage() {
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">{visit.chief_complaint}</p>
-                      <p className="text-sm text-gray-500">Dr. {visit.doctor_name} • {format(new Date(visit.visit_date), 'MMM d, yyyy')}</p>
+                      <p className="text-sm text-gray-500">Dr. {visit.doctor_name} • {visit.visit_date && isValid(parseISO(visit.visit_date)) ? format(parseISO(visit.visit_date), 'MMM d, yyyy') : '—'}</p>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${visit.is_signed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                       {visit.is_signed ? 'Signed' : 'Draft'}
@@ -220,7 +220,7 @@ export default function PatientDetailPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium text-gray-900">{rx.items?.length || 0} medication(s)</p>
-                        <p className="text-sm text-gray-500">Dr. {rx.doctor_name} • {format(new Date(rx.created_at), 'MMM d, yyyy')}</p>
+                        <p className="text-sm text-gray-500">Dr. {rx.doctor_name} • {rx.created_at && isValid(parseISO(rx.created_at)) ? format(parseISO(rx.created_at), 'MMM d, yyyy') : '—'}</p>
                       </div>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                         rx.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
@@ -246,7 +246,7 @@ export default function PatientDetailPage() {
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">Order #{order.order_number}</p>
-                      <p className="text-sm text-gray-500">{order.tests?.length || 0} test(s) • {format(new Date(order.created_at), 'MMM d, yyyy')}</p>
+                      <p className="text-sm text-gray-500">{order.tests?.length || 0} test(s) • {order.created_at && isValid(parseISO(order.created_at)) ? format(parseISO(order.created_at), 'MMM d, yyyy') : '—'}</p>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                       order.status === 'completed' ? 'bg-green-100 text-green-700' :
@@ -273,7 +273,7 @@ export default function PatientDetailPage() {
                     </div>
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">#{inv.invoice_number}</p>
-                      <p className="text-sm text-gray-500">${inv.total} • {format(new Date(inv.created_at), 'MMM d, yyyy')}</p>
+                      <p className="text-sm text-gray-500">${inv.total} • {(inv.issued_at || inv.created_at) && isValid(parseISO(inv.issued_at || inv.created_at || '')) ? format(parseISO(inv.issued_at || inv.created_at || ''), 'MMM d, yyyy') : '—'}</p>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                       inv.status === 'paid' ? 'bg-green-100 text-green-700' :

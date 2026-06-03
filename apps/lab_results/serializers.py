@@ -24,14 +24,14 @@ class TestResultSerializer(serializers.ModelSerializer):
 
 class TestResultInputSerializer(serializers.Serializer):
     value = serializers.CharField(max_length=200)
-    unit = serializers.CharField(max_length=50, required=False, default="")
+    unit = serializers.CharField(max_length=50, required=False, default="", allow_blank=True)
     reference_range_low = serializers.DecimalField(
         max_digits=10, decimal_places=3, required=False, allow_null=True
     )
     reference_range_high = serializers.DecimalField(
         max_digits=10, decimal_places=3, required=False, allow_null=True
     )
-    interpretation = serializers.CharField(required=False, default="")
+    interpretation = serializers.CharField(required=False, default="", allow_blank=True)
 
 
 class LabTestSerializer(serializers.ModelSerializer):
@@ -45,9 +45,9 @@ class LabTestSerializer(serializers.ModelSerializer):
 
 class LabTestInputSerializer(serializers.Serializer):
     test_name = serializers.CharField(max_length=200)
-    test_code = serializers.CharField(max_length=50, required=False, default="")
-    specimen_type = serializers.CharField(max_length=100, required=False, default="")
-    notes = serializers.CharField(required=False, default="")
+    test_code = serializers.CharField(max_length=50, required=False, default="", allow_blank=True)
+    specimen_type = serializers.CharField(max_length=100, required=False, default="", allow_blank=True)
+    notes = serializers.CharField(required=False, default="", allow_blank=True)
 
 
 class LabOrderSerializer(serializers.ModelSerializer):
@@ -88,12 +88,13 @@ class LabOrderCreateSerializer(serializers.Serializer):
     doctor_id = serializers.UUIDField()
     visit_id = serializers.UUIDField(required=False, allow_null=True)
     priority = serializers.CharField(max_length=10, default="routine")
-    clinical_notes = serializers.CharField(required=False, default="")
+    clinical_notes = serializers.CharField(required=False, default="", allow_blank=True)
     tests = LabTestInputSerializer(many=True, min_length=1)
 
 
 class LabOrderListSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source="patient.full_name", read_only=True)
+    doctor_name = serializers.SerializerMethodField()
     test_count = serializers.IntegerField(source="tests.count", read_only=True)
 
     class Meta:
@@ -104,8 +105,21 @@ class LabOrderListSerializer(serializers.ModelSerializer):
             "patient",
             "patient_name",
             "doctor",
+            "doctor_name",
             "status",
             "priority",
             "ordered_at",
             "test_count",
+            "created_at",
         ]
+
+    def get_doctor_name(self, obj) -> str:
+        if obj.doctor:
+            from apps.accounts.models import User
+            try:
+                user = User.objects.get(pk=obj.doctor.user_id)
+                name = f"{user.first_name} {user.last_name}".strip()
+                return name or user.email
+            except User.DoesNotExist:
+                return obj.doctor.specialization
+        return "—"

@@ -36,7 +36,7 @@ export function usePermissions(params?: Record<string, string>) {
 export function useCreateRole() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: { name: string; description?: string; permissions?: string[] }) =>
+    mutationFn: (data: { name: string; description?: string; permission_ids?: string[] }) =>
       rbacService.createRole(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: rbacKeys.roles() })
@@ -51,7 +51,7 @@ export function useCreateRole() {
 export function useUpdateRole() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<{ name: string; description: string; permissions: string[] }> }) =>
+    mutationFn: ({ id, data }: { id: string; data: Partial<{ name: string; description: string; permission_ids: string[] }> }) =>
       rbacService.updateRole(id, data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: rbacKeys.roles() })

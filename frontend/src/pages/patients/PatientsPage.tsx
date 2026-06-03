@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Search, Users, Phone, Mail } from 'lucide-react'
-import { format } from 'date-fns'
 import { usePatients } from '@/hooks/usePatients'
+import { safeFormat } from '@/lib/utils'
 import PatientFormModal from './PatientFormModal'
 
 export default function PatientsPage() {
@@ -142,7 +142,7 @@ export default function PatientsPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600 capitalize">{patient.gender || '—'}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {patient.date_of_birth ? format(new Date(patient.date_of_birth), 'MMM d, yyyy') : '—'}
+                        {safeFormat(patient.date_of_birth, 'MMM d, yyyy')}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

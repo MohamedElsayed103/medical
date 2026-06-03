@@ -32,6 +32,7 @@ class BillingService:
         Create an invoice with line items. Calculates subtotal, tax, total.
 
         ``items``: list of {item_type, description, quantity, unit_price}
+        ``tax_rate``: percentage (e.g. 10 for 10%)
         """
         invoice = Invoice(
             invoice_number=generate_invoice_number(),
@@ -55,8 +56,10 @@ class BillingService:
             subtotal += item.total_price
             item_objects.append(item)
 
+        # Convert tax_rate from percentage to decimal (e.g. 10 -> 0.10)
+        tax_multiplier = tax_rate / Decimal("100") if tax_rate > 1 else tax_rate
         invoice.subtotal = subtotal
-        invoice.tax_amount = subtotal * tax_rate
+        invoice.tax_amount = subtotal * tax_multiplier
         invoice.total = subtotal + invoice.tax_amount - discount_amount
         invoice.save()
 

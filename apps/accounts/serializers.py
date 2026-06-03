@@ -62,10 +62,11 @@ class MeSerializer(serializers.ModelSerializer):
             "last_name",
             "display_name",
             "is_active",
+            "last_login",
             "created_at",
             "tenant_mappings",
         ]
-        read_only_fields = ["id", "email", "is_active", "created_at"]
+        read_only_fields = ["id", "email", "is_active", "last_login", "created_at"]
 
 
 class VerifyPinSerializer(serializers.Serializer):

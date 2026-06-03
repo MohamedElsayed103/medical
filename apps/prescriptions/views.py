@@ -41,6 +41,7 @@ class PrescriptionViewSet(ModelViewSet):
     ).all()
     ordering_fields = ["prescribed_at", "created_at"]
     ordering = ["-prescribed_at"]
+    search_fields = ["patient__first_name", "patient__last_name", "notes"]
 
     def get_serializer_class(self):
         if self.action == "list":

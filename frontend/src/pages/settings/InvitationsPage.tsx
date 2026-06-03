@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { format } from 'date-fns'
+import { format, parseISO, isValid } from 'date-fns'
 import { Mail, Plus, Copy, XCircle } from 'lucide-react'
 import { useInvitations, useCreateInvitation, useCancelInvitation, useRoles } from '@/hooks/useRbac'
 import { useForm } from 'react-hook-form'
@@ -72,14 +72,14 @@ export default function InvitationsPage() {
                 <div className="flex-1">
                   <p className="font-medium text-gray-900">{inv.email}</p>
                   <p className="text-sm text-gray-500">Role: {inv.role_name} • By: {inv.invited_by_name}</p>
-                  <p className="text-xs text-gray-400">Expires: {format(new Date(inv.expires_at), 'MMM d, yyyy')}</p>
+                  <p className="text-xs text-gray-400">Expires: {inv.expires_at && isValid(parseISO(inv.expires_at)) ? format(parseISO(inv.expires_at), 'MMM d, yyyy') : '—'}</p>
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                  inv.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                  inv.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                  inv.status === 'PENDING' || inv.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                  inv.status === 'ACCEPTED' || inv.status === 'accepted' ? 'bg-green-100 text-green-700' :
                   'bg-red-100 text-red-700'
                 }`}>{inv.status}</span>
-                {inv.status === 'pending' && (
+                {(inv.status === 'PENDING' || inv.status === 'pending') && (
                   <div className="flex gap-1">
                     <button onClick={() => copyLink(inv.token)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400" title="Copy link">
                       <Copy className="w-4 h-4" />

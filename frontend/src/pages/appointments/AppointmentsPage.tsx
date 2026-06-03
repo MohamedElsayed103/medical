@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek } from 'date-fns'
 import { Plus, Search, Calendar as CalendarIcon, List, Clock, CheckCircle, XCircle, Play, AlertTriangle } from 'lucide-react'
+import { safeFormat } from '@/lib/utils'
 import { useAppointments, useAppointmentAction } from '@/hooks/useAppointments'
 import BookAppointmentModal from './BookAppointmentModal'
 
@@ -147,7 +148,7 @@ export default function AppointmentsPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900">{apt.patient_name || 'Patient'}</p>
                     <p className="text-sm text-gray-500">
-                      Dr. {apt.doctor_name || 'Unknown'} • {apt.scheduled_at ? format(new Date(apt.scheduled_at), 'MMM d, yyyy h:mm a') : '—'}
+                      Dr. {apt.doctor_name || 'Unknown'} • {safeFormat(apt.scheduled_at, 'MMM d, yyyy h:mm a')}
                       {apt.duration_minutes && ` • ${apt.duration_minutes} min`}
                     </p>
                     {apt.reason && <p className="text-xs text-gray-400 mt-0.5">{apt.reason}</p>}

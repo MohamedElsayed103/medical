@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { format } from 'date-fns'
+import { format, parseISO, isValid } from 'date-fns'
 import { Plus, Search, DollarSign, CreditCard, TrendingUp, AlertTriangle } from 'lucide-react'
 import { useInvoices, useBillingSummary, useCreateInvoice, useInvoiceAction, useRecordPayment } from '@/hooks/useBilling'
 import { usePatients } from '@/hooks/usePatients'
@@ -58,7 +58,7 @@ export default function BillingPage() {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl p-4 shadow-soft border border-gray-100">
             <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-green-500" /><span className="text-xs text-gray-500">Total Revenue</span></div>
-            <p className="text-xl font-bold text-gray-900">${Number(summary.total_revenue || 0).toLocaleString()}</p>
+            <p className="text-xl font-bold text-gray-900">${Number(summary.total_invoiced || summary.total_revenue || 0).toLocaleString()}</p>
           </div>
           <div className="bg-white rounded-xl p-4 shadow-soft border border-gray-100">
             <div className="flex items-center gap-2 mb-2"><DollarSign className="w-4 h-4 text-blue-500" /><span className="text-xs text-gray-500">Outstanding</span></div>
@@ -108,7 +108,7 @@ export default function BillingPage() {
                     <p className="font-medium text-gray-900">#{invoice.invoice_number}</p>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>{invoice.status?.replace('_', ' ')}</span>
                   </div>
-                  <p className="text-sm text-gray-500">{invoice.patient_name} • {format(new Date(invoice.created_at), 'MMM d, yyyy')}</p>
+                  <p className="text-sm text-gray-500">{invoice.patient_name} • {(() => { const d = parseISO(invoice.issued_at || invoice.created_at || ''); return isValid(d) ? format(d, 'MMM d, yyyy') : '—' })()}</p>
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-gray-900">${Number(invoice.total || 0).toFixed(2)}</p>
