@@ -20,6 +20,11 @@ def generate_invoice_number(prefix: str = "INV") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8].upper()}"
 
 
+def generate_order_number(prefix: str) -> str:
+    """Generate a unique order number.  Format: PREFIX-XXXXXXXX"""
+    return f"{prefix}-{uuid.uuid4().hex[:8].upper()}"
+
+
 def generate_api_key() -> tuple[str, str]:
     """Generate a random API key and its SHA-256 hash.
 

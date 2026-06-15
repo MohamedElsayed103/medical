@@ -10,7 +10,7 @@ import uuid
 
 from django.db import models
 
-from common.enums import MedicationForm
+from common.enums import MedicationForm, PharmacyOrderStatus
 from common.models import BaseModel
 
 
@@ -69,6 +69,18 @@ class PharmacyInventory(BaseModel):
     @property
     def is_low_stock(self) -> bool:
         return self.quantity_on_hand <= self.reorder_level
+
+    @property
+    def is_out_of_stock(self) -> bool:
+        return self.quantity_on_hand == 0
+
+    @property
+    def stock_status(self) -> str:
+        if self.quantity_on_hand == 0:
+            return "out_of_stock"
+        if self.quantity_on_hand <= self.reorder_level:
+            return "low_stock"
+        return "in_stock"
 
     @property
     def total_value(self):
@@ -149,3 +161,77 @@ class DispenseItem(BaseModel):
 
     def __str__(self):
         return f"{self.medication.name} x{self.quantity_dispensed}"
+
+
+class PharmacyOrder(BaseModel):
+    """A pharmacy sale order (OTC or prescription-linked, internal patient or walk-in)."""
+
+    AUDITED = True
+
+    patient = models.ForeignKey(
+        "patients.Patient", null=True, blank=True,
+        on_delete=models.PROTECT, related_name="pharmacy_orders"
+    )
+    customer = models.ForeignKey(
+        "patients.Customer", null=True, blank=True,
+        on_delete=models.PROTECT, related_name="pharmacy_orders"
+    )
+    prescription = models.ForeignKey(
+        "prescriptions.Prescription", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="pharmacy_orders",
+        help_text="Set when the order originates from a prescription.",
+    )
+    order_number = models.CharField(max_length=30, unique=True, db_index=True)
+    status = models.CharField(
+        max_length=20, choices=PharmacyOrderStatus.choices,
+        default=PharmacyOrderStatus.DRAFT,
+    )
+    invoice = models.ForeignKey(
+        "billing.Invoice", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="pharmacy_orders"
+    )
+    created_by_id = models.UUIDField(help_text="Pharmacist user id")
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "pharmacy_order"
+        ordering = ["-created_at"]
+
+    @property
+    def orderer_name(self) -> str:
+        if self.patient_id:
+            return getattr(self.patient, "full_name", "")
+        return getattr(self.customer, "full_name", "") if self.customer_id else ""
+
+    @property
+    def orderer_type(self) -> str:
+        return "patient" if self.patient_id else "customer"
+
+    def __str__(self):
+        return f"PharmacyOrder({self.order_number})"
+
+
+class PharmacyOrderItem(BaseModel):
+    """Line item in a pharmacy order."""
+
+    order = models.ForeignKey(PharmacyOrder, on_delete=models.CASCADE, related_name="items")
+    medication = models.ForeignKey(
+        "prescriptions.Medication", on_delete=models.PROTECT
+    )
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    inventory = models.ForeignKey(
+        PharmacyInventory, null=True, blank=True, on_delete=models.SET_NULL,
+        help_text="Inventory batch fulfilled from (set at fulfillment)",
+    )
+
+    class Meta:
+        db_table = "pharmacy_order_item"
+
+    @property
+    def line_total(self):
+        from decimal import Decimal
+        return Decimal(str(self.quantity)) * self.unit_price
+
+    def __str__(self):
+        return f"{self.medication.name} x{self.quantity}"

@@ -108,6 +108,46 @@ class InvoiceViewSet(ModelViewSet):
         serializer = PaymentSerializer(invoice.payments.all(), many=True)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["get"], url_path="revenue-timeseries")
+    def revenue_timeseries(self, request):
+        """
+        Returns daily revenue for the past N days (default 30).
+        Query params: days (int, max 365), group_by (day|week|month)
+        """
+        from datetime import timedelta
+
+        from django.db.models import Sum
+        from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
+        from django.utils import timezone as tz
+
+        try:
+            days = min(int(request.query_params.get("days", 30)), 365)
+        except (ValueError, TypeError):
+            days = 30
+
+        group_by = request.query_params.get("group_by", "day")
+        trunc_fn = {"week": TruncWeek, "month": TruncMonth}.get(group_by, TruncDay)
+
+        since = tz.now() - timedelta(days=days)
+
+        qs = (
+            Invoice.objects.filter(
+                status__in=[InvoiceStatus.PAID, InvoiceStatus.PARTIALLY_PAID],
+                updated_at__gte=since,
+            )
+            .annotate(period=trunc_fn("updated_at"))
+            .values("period")
+            .annotate(revenue=Sum("amount_paid"))
+            .order_by("period")
+        )
+
+        data = [
+            {"date": row["period"].isoformat(), "revenue": float(row["revenue"] or 0)}
+            for row in qs
+        ]
+
+        return Response({"results": data, "days": days})
+
 
 class BillingSummaryView(APIView):
     """GET /api/v1/billing/summary/ — revenue dashboard."""

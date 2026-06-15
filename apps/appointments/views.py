@@ -7,29 +7,38 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.permissions import IsDoctor, IsReceptionistOrAbove
+from apps.rbac.permissions import HasPermission
 from apps.patients.models import Patient
 from common.enums import AppointmentStatus
 
 from .filters import AppointmentFilter
-from .models import Appointment, DoctorProfile
+from .models import Appointment, DoctorAvailability, DoctorProfile, DoctorTimeOff
 from .serializers import (
     AppointmentListSerializer,
     AppointmentSerializer,
     AvailableSlotsSerializer,
     BookAppointmentSerializer,
     CancelSerializer,
+    DoctorAvailabilitySerializer,
     DoctorProfileSerializer,
+    DoctorTimeOffSerializer,
     RescheduleSerializer,
 )
 from .services import AppointmentService
 
 
 class DoctorProfileViewSet(ModelViewSet):
-    queryset = DoctorProfile.objects.all()
     serializer_class = DoctorProfileSerializer
     permission_classes = [IsReceptionistOrAbove]
     search_fields = ["specialization"]
     ordering_fields = ["specialization", "consultation_fee", "created_at"]
+
+    def get_queryset(self):
+        qs = DoctorProfile.objects.all()
+        specialization = self.request.query_params.get("specialization")
+        if specialization:
+            qs = qs.filter(specialization__icontains=specialization)
+        return qs
 
 
 class AppointmentViewSet(ModelViewSet):
@@ -139,3 +148,37 @@ class AppointmentViewSet(ModelViewSet):
             duration_minutes=data["duration_minutes"],
         )
         return Response({"slots": [s.isoformat() for s in slots]})
+
+
+class DoctorAvailabilityViewSet(ModelViewSet):
+    """Manage doctor recurring availability windows."""
+    serializer_class = DoctorAvailabilitySerializer
+
+    def get_queryset(self):
+        qs = DoctorAvailability.objects.all()
+        doctor_id = self.request.query_params.get("doctor_id")
+        if doctor_id:
+            qs = qs.filter(doctor_id=doctor_id)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [HasPermission("doctor_availability:read")]
+        return [HasPermission("doctor_availability:write")]
+
+
+class DoctorTimeOffViewSet(ModelViewSet):
+    """Manage doctor time-off exceptions."""
+    serializer_class = DoctorTimeOffSerializer
+
+    def get_queryset(self):
+        qs = DoctorTimeOff.objects.all()
+        doctor_id = self.request.query_params.get("doctor_id")
+        if doctor_id:
+            qs = qs.filter(doctor_id=doctor_id)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [HasPermission("doctor_availability:read")]
+        return [HasPermission("doctor_availability:write")]

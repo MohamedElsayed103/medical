@@ -119,7 +119,6 @@ export default function PatientFormModal({ isOpen, onClose, patient }: Props) {
                       <option value="">Select...</option>
                       <option value="male">Male</option>
                       <option value="female">Female</option>
-                      <option value="other">Other</option>
                     </select>
                     {errors.gender && <p className="mt-1 text-xs text-red-600">{errors.gender.message}</p>}
                   </div>

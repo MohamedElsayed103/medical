@@ -34,4 +34,6 @@ urlpatterns = [
     path("api/v1/pharmacy/", include("apps.pharmacy.urls", namespace="pharmacy")),
     path("api/v1/referrals/", include("apps.referrals.urls", namespace="referrals")),
     path("api/v1/insurance/", include("apps.insurance.urls", namespace="insurance")),
+    path("api/v1/radiology/", include("apps.radiology.urls", namespace="radiology")),
+    path("api/v1/customers/", include("apps.patients.urls_customers", namespace="customers")),
 ]

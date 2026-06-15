@@ -4,7 +4,7 @@ import {
   Activity, LayoutDashboard, Users, Calendar,
   Pill, FlaskConical, CreditCard, Bell, Settings,
   Shield, UserPlus, ClipboardList, ChevronLeft,
-  LogOut, User, Brain, Package, ShieldCheck, Stethoscope
+  LogOut, User, Brain, Package, ShieldCheck, Stethoscope, ScanLine, ShoppingBag, CalendarCheck
 } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { useAuthStore } from '@/stores/authStore'
@@ -14,11 +14,14 @@ const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/patients', icon: Users, label: 'Patients', permission: 'patients:read' },
   { to: '/appointments', icon: Calendar, label: 'Appointments', permission: 'appointments:read' },
+  { to: '/appointments/availability', icon: CalendarCheck, label: 'Availability', permission: 'doctor_availability:read' },
   { to: '/visits', icon: Stethoscope, label: 'Visits', permission: 'medical_records:read' },
   { to: '/prescriptions', icon: Pill, label: 'Prescriptions', permission: 'prescriptions:read' },
   { to: '/lab-orders', icon: FlaskConical, label: 'Lab Orders', permission: 'lab_results:read' },
   { to: '/billing', icon: CreditCard, label: 'Billing', permission: 'billing:read' },
   { to: '/pharmacy', icon: Package, label: 'Pharmacy', permission: 'pharmacy:read' },
+  { to: '/pharmacy/orders', icon: ShoppingBag, label: 'Pharmacy Orders', permission: 'pharmacy:read' },
+  { to: '/radiology', icon: ScanLine, label: 'Radiology', permission: 'radiology:read' },
   { to: '/insurance', icon: ShieldCheck, label: 'Insurance', permission: 'insurance:read' },
   { to: '/ai', icon: Brain, label: 'AI Assistant' },
   { to: '/notifications', icon: Bell, label: 'Notifications', permission: 'notifications:read' },

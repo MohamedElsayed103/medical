@@ -154,3 +154,38 @@ class InvoiceItemType(models.TextChoices):
     LAB_TEST = "lab_test", "Lab Test"
     MEDICATION = "medication", "Medication"
     OTHER = "other", "Other"
+
+
+class InvoiceSourceType(models.TextChoices):
+    VISIT = "visit", "Visit"
+    PHARMACY_ORDER = "pharmacy_order", "Pharmacy Order"
+    LAB_ORDER = "lab_order", "Lab Order"
+    RADIOLOGY_ORDER = "radiology_order", "Radiology Order"
+    MANUAL = "manual", "Manual"
+
+
+class PharmacyOrderStatus(models.TextChoices):
+    DRAFT = "draft", "Draft"
+    AWAITING_PAYMENT = "awaiting_payment", "Awaiting Payment"
+    PAID = "paid", "Paid"
+    FULFILLED = "fulfilled", "Fulfilled"
+    CANCELLED = "cancelled", "Cancelled"
+
+
+class RadiologyModality(models.TextChoices):
+    XRAY = "xray", "X-Ray"
+    CT = "ct", "CT Scan"
+    MRI = "mri", "MRI"
+    ULTRASOUND = "ultrasound", "Ultrasound"
+    MAMMOGRAPHY = "mammography", "Mammography"
+    FLUOROSCOPY = "fluoroscopy", "Fluoroscopy"
+    PET = "pet", "PET Scan"
+
+
+class RadiologyOrderStatus(models.TextChoices):
+    ORDERED = "ordered", "Ordered"
+    SCHEDULED = "scheduled", "Scheduled"
+    IN_PROGRESS = "in_progress", "In Progress"
+    AWAITING_REPORT = "awaiting_report", "Awaiting Report"
+    COMPLETED = "completed", "Completed"
+    CANCELLED = "cancelled", "Cancelled"

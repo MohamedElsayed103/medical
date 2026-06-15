@@ -70,6 +70,7 @@ TENANT_APPS = [
     "apps.ai_integration",
     "apps.pharmacy",
     "apps.insurance",
+    "apps.radiology",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [

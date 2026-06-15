@@ -11,7 +11,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from apps.patients.models import Patient
-from common.enums import InvoiceItemType, InvoiceStatus, PaymentMethod
+from common.enums import InvoiceItemType, InvoiceSourceType, InvoiceStatus, PaymentMethod
 from common.models import BaseModel
 from common.utils import generate_invoice_number
 
@@ -22,7 +22,7 @@ class Invoice(BaseModel):
     AUDITED = True
 
     invoice_number = models.CharField(max_length=30, unique=True, db_index=True)
-    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name="invoices")
+    patient = models.ForeignKey(Patient, null=True, blank=True, on_delete=models.PROTECT, related_name="invoices")
     issued_at = models.DateTimeField(auto_now_add=True)
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(
@@ -34,6 +34,15 @@ class Invoice(BaseModel):
     total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     notes = models.TextField(blank=True)
+    customer = models.ForeignKey(
+        "patients.Customer", null=True, blank=True,
+        on_delete=models.PROTECT, related_name="invoices"
+    )
+    source_type = models.CharField(
+        max_length=30, choices=InvoiceSourceType.choices,
+        default=InvoiceSourceType.MANUAL
+    )
+    source_id = models.UUIDField(null=True, blank=True, db_index=True)
 
     class Meta:
         db_table = "billing_invoice"
@@ -49,6 +58,14 @@ class Invoice(BaseModel):
     @property
     def balance_due(self) -> Decimal:
         return self.total - self.amount_paid
+
+    @property
+    def payer_name(self) -> str:
+        if self.patient_id:
+            return getattr(self.patient, "full_name", "")
+        if self.customer_id:
+            return getattr(self.customer, "full_name", "")
+        return ""
 
 
 class InvoiceItem(BaseModel):

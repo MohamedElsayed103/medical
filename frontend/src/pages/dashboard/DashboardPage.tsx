@@ -7,6 +7,7 @@ import {
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import api from '@/lib/api'
 import { patientsService, appointmentsService, labOrdersService, billingService } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 import { isValid, parseISO } from 'date-fns'
@@ -43,9 +44,9 @@ export default function DashboardPage() {
     retry: false,
   })
 
-  const { data: recentInvoices } = useQuery({
-    queryKey: ['dashboard', 'recent-invoices'],
-    queryFn: () => billingService.getAll({ page_size: 7, ordering: '-created_at' }),
+  const { data: revenueData } = useQuery({
+    queryKey: ['revenue-timeseries'],
+    queryFn: () => api.get('/invoices/revenue-timeseries/').then(r => r.data),
     retry: false,
   })
 
@@ -84,18 +85,13 @@ export default function DashboardPage() {
     },
   ]
 
-  // Generate revenue chart data from invoices
-  const revenueChartData = (() => {
-    if (!recentInvoices?.results) return []
-    const byDay: Record<string, number> = {}
-    recentInvoices.results.forEach(inv => {
-      const day = safeFormat(inv.created_at, 'MMM dd')
-      if (day !== '—') {
-        byDay[day] = (byDay[day] || 0) + Number(inv.total || 0)
-      }
+  // Map revenue timeseries data to chart format
+  const revenueChartData = (revenueData?.results ?? []).map(
+    (entry: { date: string; revenue: number }) => ({
+      name: safeFormat(entry.date, 'MMM dd'),
+      revenue: entry.revenue,
     })
-    return Object.entries(byDay).map(([name, revenue]) => ({ name, revenue }))
-  })()
+  )
 
   return (
     <div className="space-y-6">

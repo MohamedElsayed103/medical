@@ -56,6 +56,12 @@ class PrescriptionService:
             patient_id=str(patient.id),
             item_count=len(items),
         )
+
+        try:
+            PrescriptionService.enqueue_for_dispense(prescription=prescription)
+        except Exception as e:
+            logger.warning("enqueue_for_dispense_failed_on_create prescription=%s err=%s", prescription.id, e)
+
         return prescription
 
     @staticmethod
@@ -86,3 +92,46 @@ class PrescriptionService:
         if update_fields:
             prescription.save(update_fields=update_fields + ["updated_at"])
         return prescription
+
+    @staticmethod
+    @transaction.atomic
+    def enqueue_for_dispense(*, prescription: Prescription) -> None:
+        """
+        When a prescription is finalized, create a pharmacy order draft for it.
+        Called from finalize_prescription or visit signing.
+        """
+        try:
+            from apps.pharmacy.services import PharmacyOrderService
+
+            # Only enqueue prescriptions that have not yet been dispensed.
+            if prescription.is_dispensed:
+                return
+
+            items = [
+                {
+                    "medication_id": str(item.medication_id),
+                    "quantity": item.quantity,
+                }
+                for item in prescription.items.select_related("medication").all()
+            ]
+
+            if not items:
+                return
+
+            order = PharmacyOrderService.create_order(
+                created_by_id=str(prescription.doctor_id) if prescription.doctor_id else "",
+                patient_id=str(prescription.patient_id) if prescription.patient_id else None,
+                prescription_id=str(prescription.id),
+                items=items,
+                notes=f"Auto-created from prescription {prescription.id}",
+            )
+            logger.info(
+                "prescription_enqueued_for_dispense",
+                prescription_id=str(prescription.id),
+                order_id=str(order.id),
+            )
+        except Exception as e:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "enqueue_for_dispense_failed prescription=%s err=%s", prescription.id, e
+            )

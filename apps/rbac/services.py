@@ -99,6 +99,23 @@ MEDICAL_PERMISSIONS = [
     # Insurance
     ("insurance:read", "insurance", "View insurance claims"),
     ("insurance:write", "insurance", "Manage insurance claims"),
+    # Doctor availability
+    ("doctor_availability:read", "doctor_availability", "View doctor availability"),
+    ("doctor_availability:write", "doctor_availability", "Manage doctor availability"),
+    # Customers (walk-in)
+    ("customers:read", "customers", "View walk-in customers"),
+    ("customers:write", "customers", "Manage walk-in customers"),
+    # Pharmacy orders
+    ("pharmacy_orders:read", "pharmacy_orders", "View pharmacy orders"),
+    ("pharmacy_orders:write", "pharmacy_orders", "Create/manage pharmacy orders"),
+    # Radiology
+    ("radiology:read", "radiology", "View radiology orders"),
+    ("radiology:write", "radiology", "Create/manage radiology orders"),
+    ("radiology:result", "radiology", "Record radiology reports"),
+    # Lab results recording
+    ("lab_results:result", "lab_results", "Record lab test results"),
+    # Vitals writing
+    ("medical_records:write_vitals", "medical_records", "Record patient vitals"),
 ]
 
 # Map each system role to its permission names
@@ -115,6 +132,12 @@ ROLE_PERMISSION_MAP = {
         "ai:read", "ai:write",
         "reports:read",
         "insurance:read",
+        "doctor_availability:read", "doctor_availability:write",
+        "customers:read",
+        "pharmacy_orders:read",
+        "radiology:read",
+        "medical_records:write_vitals",
+        "lab_results:result",
     ],
     "Nurse": [
         "patients:read", "patients:write",
@@ -124,6 +147,11 @@ ROLE_PERMISSION_MAP = {
         "lab_results:read",
         "pharmacy:read",
         "notifications:read", "notifications:write",
+        "doctor_availability:read",
+        "customers:read",
+        "pharmacy_orders:read",
+        "radiology:read",
+        "medical_records:write_vitals",
     ],
     "Receptionist": [
         "patients:read", "patients:write",
@@ -131,18 +159,26 @@ ROLE_PERMISSION_MAP = {
         "billing:read", "billing:write",
         "notifications:read",
         "insurance:read",
+        "doctor_availability:read",
+        "customers:read", "customers:write",
+        "pharmacy_orders:read",
     ],
     "Lab Technician": [
         "patients:read",
         "lab_results:read", "lab_results:write",
         "notifications:read", "notifications:write",
         "reports:read",
+        "customers:read", "customers:write",
+        "radiology:read", "radiology:write", "radiology:result",
+        "lab_results:result",
     ],
     "Pharmacist": [
         "patients:read",
         "prescriptions:read",
         "pharmacy:read", "pharmacy:write",
         "notifications:read", "notifications:write",
+        "customers:read", "customers:write",
+        "pharmacy_orders:read", "pharmacy_orders:write",
     ],
     "Billing Staff": [
         "patients:read",
@@ -150,6 +186,7 @@ ROLE_PERMISSION_MAP = {
         "insurance:read", "insurance:write",
         "reports:read", "reports:export",
         "notifications:read",
+        "customers:read",
     ],
 }
 

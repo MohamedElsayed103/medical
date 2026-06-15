@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek } from 'date-fns'
 import { Plus, Search, Calendar as CalendarIcon, List, Clock, CheckCircle, XCircle, Play, AlertTriangle } from 'lucide-react'
 import { safeFormat } from '@/lib/utils'
-import { useAppointments, useAppointmentAction } from '@/hooks/useAppointments'
+import { useAppointments, useAppointmentAction, useDoctors } from '@/hooks/useAppointments'
 import BookAppointmentModal from './BookAppointmentModal'
 
 export default function AppointmentsPage() {
@@ -15,10 +15,14 @@ export default function AppointmentsPage() {
   const [page, setPage] = useState(1)
   const [showBookModal, setShowBookModal] = useState(searchParams.get('new') === '1')
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [doctorFilter, setDoctorFilter] = useState('')
 
   const params: Record<string, string | number> = { page, page_size: 20, ordering: '-scheduled_at' }
   if (search) params.search = search
   if (statusFilter) params.status = statusFilter
+  if (doctorFilter) params.doctor_id = doctorFilter
+
+  const { data: doctors } = useDoctors({ page_size: 100 })
 
   const { data, isLoading } = useAppointments(params)
   const appointmentAction = useAppointmentAction()
@@ -234,6 +238,16 @@ export default function AppointmentsPage() {
             <button onClick={() => setCurrentMonth(d => new Date(d.getFullYear(), d.getMonth() - 1))} className="p-2 hover:bg-gray-100 rounded-lg">&lt;</button>
             <h2 className="text-lg font-semibold text-gray-900">{format(currentMonth, 'MMMM yyyy')}</h2>
             <button onClick={() => setCurrentMonth(d => new Date(d.getFullYear(), d.getMonth() + 1))} className="p-2 hover:bg-gray-100 rounded-lg">&gt;</button>
+            <select
+              value={doctorFilter}
+              onChange={e => setDoctorFilter(e.target.value)}
+              className="input-field text-sm py-1.5 max-w-[200px]"
+            >
+              <option value="">All Doctors</option>
+              {doctors?.results?.map(doc => (
+                <option key={doc.id} value={doc.id}>{doc.user_name}</option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-7 gap-1">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
@@ -256,6 +270,7 @@ export default function AppointmentsPage() {
                   {dayAppointments.slice(0, 2).map(apt => (
                     <div key={apt.id} className={`text-[10px] px-1 py-0.5 rounded mb-0.5 truncate ${getStatusColor(apt.status)}`}>
                       {apt.patient_name?.split(' ')[0] || 'Apt'}
+                      {apt.doctor_name && <span className="text-xs opacity-70"> · {apt.doctor_name}</span>}
                     </div>
                   ))}
                   {dayAppointments.length > 2 && (

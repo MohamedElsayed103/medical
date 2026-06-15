@@ -21,8 +21,12 @@ class LabOrder(BaseModel):
 
     AUDITED = True
 
-    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name="lab_orders")
-    doctor = models.ForeignKey(DoctorProfile, on_delete=models.PROTECT, related_name="lab_orders")
+    patient = models.ForeignKey(Patient, null=True, blank=True, on_delete=models.PROTECT, related_name="lab_orders")
+    doctor = models.ForeignKey(DoctorProfile, null=True, blank=True, on_delete=models.PROTECT, related_name="lab_orders")
+    customer = models.ForeignKey(
+        "patients.Customer", null=True, blank=True,
+        on_delete=models.PROTECT, related_name="lab_orders"
+    )
     visit = models.ForeignKey(
         Visit, null=True, blank=True, on_delete=models.SET_NULL, related_name="lab_orders"
     )
@@ -32,6 +36,10 @@ class LabOrder(BaseModel):
     clinical_notes = models.TextField(blank=True)
     ordered_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    invoice = models.ForeignKey(
+        "billing.Invoice", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="lab_orders"
+    )
 
     class Meta:
         db_table = "lab_results_lab_order"
@@ -43,6 +51,16 @@ class LabOrder(BaseModel):
 
     def __str__(self):
         return f"Lab({self.order_number})"
+
+    @property
+    def orderer_name(self) -> str:
+        if self.patient_id:
+            return getattr(self.patient, "full_name", "")
+        return getattr(self.customer, "full_name", "") if self.customer_id else ""
+
+    @property
+    def orderer_type(self) -> str:
+        return "patient" if self.patient_id else "customer"
 
 
 class LabTest(BaseModel):

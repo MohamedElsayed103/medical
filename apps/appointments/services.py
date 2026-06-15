@@ -106,6 +106,24 @@ class AppointmentService:
                 appointment.cancelled_by_id = cancelled_by_id
 
         appointment.save()
+
+        if new_status == AppointmentStatus.COMPLETED:
+            try:
+                from apps.notifications.services import NotificationService
+                from common.enums import NotificationType, NotificationChannel
+                has_visit = appointment.visits.filter(deleted_at__isnull=True).exists() if hasattr(appointment, 'visits') else False
+                if not has_visit:
+                    NotificationService.create_and_send(
+                        recipient_id=str(appointment.doctor.user_id),
+                        notification_type=NotificationType.SYSTEM,
+                        title="Visit record needed",
+                        body="Appointment completed. Please record the visit for the patient.",
+                        channel=NotificationChannel.IN_APP,
+                        data={"action": "create_visit", "appointment_id": str(appointment.id), "patient_id": str(appointment.patient_id)},
+                    )
+            except Exception:
+                pass
+
         logger.info(
             "appointment_status_changed",
             appointment_id=str(appointment.id),
@@ -116,48 +134,80 @@ class AppointmentService:
     @staticmethod
     def get_available_slots(
         doctor: DoctorProfile,
-        date: datetime.date,
+        date,
         duration_minutes: int = 30,
         work_start_hour: int = 9,
         work_end_hour: int = 17,
-    ) -> list[datetime]:
-        """Return available time slots for a doctor on a given date."""
-        start_of_day = timezone.make_aware(
-            datetime.combine(date, datetime.min.time().replace(hour=work_start_hour))
-        )
-        end_of_day = timezone.make_aware(
-            datetime.combine(date, datetime.min.time().replace(hour=work_end_hour))
+    ) -> list:
+        """Return available time slots respecting DoctorAvailability windows and time-off."""
+        from datetime import datetime as dt, timedelta, time as dt_time
+        from .models import DoctorAvailability, DoctorTimeOff
+
+        if hasattr(date, 'date'):
+            date_obj = date.date()
+        else:
+            date_obj = date
+
+        day_of_week = date_obj.weekday()  # 0=Mon
+
+        windows = list(DoctorAvailability.objects.filter(
+            doctor=doctor, day_of_week=day_of_week, is_active=True
+        ))
+
+        if not windows:
+            start_of_day = timezone.make_aware(
+                dt.combine(date_obj, dt_time(work_start_hour, 0))
+            )
+            end_of_day = timezone.make_aware(
+                dt.combine(date_obj, dt_time(work_end_hour, 0))
+            )
+            windows_ranges = [(start_of_day, end_of_day)]
+        else:
+            windows_ranges = [
+                (
+                    timezone.make_aware(dt.combine(date_obj, w.start_time)),
+                    timezone.make_aware(dt.combine(date_obj, w.end_time)),
+                )
+                for w in windows
+            ]
+
+        day_start = windows_ranges[0][0]
+        day_end = windows_ranges[-1][1]
+
+        time_off = DoctorTimeOff.objects.filter(
+            doctor=doctor, start_at__lt=day_end, end_at__gt=day_start
         )
 
-        # Fetch existing appointments (non-cancelled) for the day
         existing = Appointment.objects.filter(
             doctor=doctor,
-            scheduled_at__gte=start_of_day,
-            scheduled_at__lt=end_of_day,
+            scheduled_at__gte=day_start,
+            scheduled_at__lt=day_end,
         ).exclude(
             status__in=[AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW]
         ).values_list("scheduled_at", "duration_minutes")
 
-        # Build set of occupied ranges
         occupied = []
         for appt_start, appt_duration in existing:
             appt_end = appt_start + timedelta(minutes=appt_duration)
             occupied.append((appt_start, appt_end))
 
-        # Generate slots
+        for off in time_off:
+            occupied.append((off.start_at, off.end_at))
+
         slots = []
-        current = start_of_day
         slot_delta = timedelta(minutes=duration_minutes)
 
-        while current + slot_delta <= end_of_day:
-            slot_end = current + slot_delta
-            conflict = any(
-                not (slot_end <= occ_start or current >= occ_end)
-                for occ_start, occ_end in occupied
-            )
-            if not conflict:
-                slots.append(current)
-            current += slot_delta
+        for win_start, win_end in windows_ranges:
+            current = win_start
+            while current + slot_delta <= win_end:
+                slot_end = current + slot_delta
+                conflict = any(
+                    not (slot_end <= occ_start or current >= occ_end)
+                    for occ_start, occ_end in occupied
+                )
+                if not conflict:
+                    slots.append(current)
+                current += slot_delta
 
         return slots
 

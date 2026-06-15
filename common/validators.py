@@ -37,3 +37,13 @@ def validate_medical_file_type(value):
             f"Unsupported file type '{value.content_type}'. "
             f"Allowed: {', '.join(ALLOWED_IMAGE_TYPES)}"
         )
+
+
+def validate_orderer(patient_id, customer_id):
+    """Exactly one of patient/customer must be set on an order."""
+    from common.exceptions import ServiceError
+    if bool(patient_id) == bool(customer_id):
+        raise ServiceError(
+            "An order must reference exactly one of patient or customer.",
+            code="INVALID_ORDERER",
+        )

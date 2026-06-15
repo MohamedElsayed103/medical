@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from common.enums import AppointmentStatus, AppointmentType
 
-from .models import Appointment, DoctorProfile
+from .models import Appointment, DoctorAvailability, DoctorProfile, DoctorTimeOff
 
 
 class DoctorProfileSerializer(serializers.ModelSerializer):
@@ -112,3 +112,15 @@ class AppointmentListSerializer(serializers.ModelSerializer):
             "status",
             "type",
         ]
+
+
+class DoctorAvailabilitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DoctorAvailability
+        fields = ["id", "doctor_id", "day_of_week", "start_time", "end_time", "is_active"]
+
+
+class DoctorTimeOffSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DoctorTimeOff
+        fields = ["id", "doctor_id", "start_at", "end_at", "reason"]

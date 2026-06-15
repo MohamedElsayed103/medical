@@ -3,6 +3,7 @@ Lab service layer.
 """
 import random
 import string
+from decimal import Decimal
 
 import structlog
 from django.db import transaction
@@ -28,8 +29,9 @@ class LabService:
     @transaction.atomic
     def create_order(
         *,
-        patient,
-        doctor,
+        patient=None,
+        customer=None,
+        doctor=None,
         visit=None,
         priority: str = "routine",
         clinical_notes: str = "",
@@ -38,10 +40,19 @@ class LabService:
         """
         Create a lab order with its tests atomically.
 
+        Accepts either a registered ``patient`` or a walk-in ``customer`` (exactly one).
         ``tests`` is a list of dicts: {test_name, test_code?, specimen_type?, notes?}
         """
+        from common.validators import validate_orderer
+
+        validate_orderer(
+            patient.id if patient else None,
+            customer.id if customer else None,
+        )
+
         order = LabOrder.objects.create(
             patient=patient,
+            customer=customer,
             doctor=doctor,
             visit=visit,
             order_number=_generate_order_number(),
@@ -93,7 +104,42 @@ class LabService:
             order_id=str(order.id),
             new_status=new_status,
         )
+
+        if new_status == LabOrderStatus.COMPLETED:
+            LabService._auto_bill(order)
+
         return order
+
+    @staticmethod
+    def _auto_bill(order: LabOrder) -> None:
+        """Create a draft invoice for the completed lab order. Failures are non-fatal."""
+        try:
+            from apps.billing.services import BillingService
+
+            test_names = ", ".join(order.tests.values_list("test_name", flat=True)) or str(order)
+            items = [
+                {
+                    "item_type": "lab",
+                    "description": f"Lab test: {test_names}",
+                    "quantity": 1,
+                    "unit_price": Decimal("25.00"),
+                }
+            ]
+            invoice = BillingService.create_from_source(
+                source_type="lab_order",
+                source_id=str(order.id),
+                patient=order.patient if order.patient_id else None,
+                customer=order.customer if hasattr(order, "customer_id") and order.customer_id else None,
+                items=items,
+                created_by_id="",
+            )
+            order.invoice = invoice
+            order.save(update_fields=["invoice", "updated_at"])
+        except Exception as e:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "lab_auto_bill_failed order=%s err=%s", order.id, e
+            )
 
     @staticmethod
     def record_result(

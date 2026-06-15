@@ -398,6 +398,83 @@ export const pharmacyService = {
 
   createInventory: (data: { medication_id: string; quantity_in_stock: number; reorder_level: number; unit_cost: string; selling_price: string; batch_number?: string; expiry_date?: string }) =>
     api.post('/pharmacy/inventory/', data).then(r => r.data),
+
+  getOrders: (params?: Record<string, string | number>) =>
+    api.get('/pharmacy/orders/', { params }).then(r => r.data),
+
+  createOrder: (data: any) =>
+    api.post('/pharmacy/orders/', data).then(r => r.data),
+
+  checkoutOrder: (id: string) =>
+    api.post(`/pharmacy/orders/${id}/checkout/`).then(r => r.data),
+
+  fulfillOrder: (id: string) =>
+    api.post(`/pharmacy/orders/${id}/fulfill/`).then(r => r.data),
+
+  completeSale: (id: string, data: { amount: number | string; method: string }) =>
+    api.post(`/pharmacy/orders/${id}/complete-sale/`, data).then(r => r.data),
+
+  cancelOrder: (id: string) =>
+    api.post(`/pharmacy/orders/${id}/cancel/`).then(r => r.data),
+
+  bulkUpload: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/pharmacy/bulk-upload/', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data)
+  },
+}
+
+// ============================================
+// AVAILABILITY SERVICE
+// ============================================
+export const availabilityService = {
+  getWindows: (params?: Record<string, string | number>) =>
+    api.get('/appointments/availability/', { params }).then(r => r.data),
+
+  createWindow: (data: any) =>
+    api.post('/appointments/availability/', data).then(r => r.data),
+
+  updateWindow: (id: string, data: any) =>
+    api.patch(`/appointments/availability/${id}/`, data).then(r => r.data),
+
+  deleteWindow: (id: string) =>
+    api.delete(`/appointments/availability/${id}/`).then(r => r.data),
+
+  getTimeOff: (params?: Record<string, string | number>) =>
+    api.get('/appointments/time-off/', { params }).then(r => r.data),
+
+  createTimeOff: (data: any) =>
+    api.post('/appointments/time-off/', data).then(r => r.data),
+
+  deleteTimeOff: (id: string) =>
+    api.delete(`/appointments/time-off/${id}/`).then(r => r.data),
+
+  getSlots: (doctorId: string, date: string, durationMinutes = 30) =>
+    api.get('/appointments/available-slots/', {
+      params: { doctor_id: doctorId, date, duration_minutes: durationMinutes },
+    }).then(r => r.data),
+}
+
+// ============================================
+// RADIOLOGY SERVICE
+// ============================================
+export const radiologyService = {
+  getOrders: (params?: Record<string, string | number>) =>
+    api.get('/radiology/orders/', { params }).then(r => r.data),
+
+  createOrder: (data: any) =>
+    api.post('/radiology/orders/', data).then(r => r.data),
+
+  getOrder: (id: string) =>
+    api.get(`/radiology/orders/${id}/`).then(r => r.data),
+
+  transition: (id: string, status: string) =>
+    api.post(`/radiology/orders/${id}/transition/`, { status }).then(r => r.data),
+
+  recordReport: (id: string, data: any) =>
+    api.post(`/radiology/orders/${id}/report/`, data).then(r => r.data),
 }
 
 // ============================================

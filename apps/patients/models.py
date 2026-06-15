@@ -59,3 +59,25 @@ class Patient(SoftDeleteModel):
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()
+
+
+class Customer(SoftDeleteModel):
+    """Non-patient orderer (walk-in) for pharmacy/lab/rays. Minimal PII; not a clinical record."""
+
+    full_name = models.CharField(max_length=255)
+    phone = models.CharField(max_length=20, db_index=True)
+    email = models.EmailField(blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "patients_customer"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["phone"]),
+            models.Index(fields=["full_name"]),
+        ]
+
+    AUDITED = True
+
+    def __str__(self):
+        return f"{self.full_name} ({self.phone})"

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Pill, Plus, Search, Package, AlertTriangle, TrendingDown, CheckCircle } from 'lucide-react'
+import { Pill, Plus, Search, Package, AlertTriangle, TrendingDown, CheckCircle, Upload } from 'lucide-react'
 import { safeFormat } from '@/lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { pharmacyService } from '@/services/api'
@@ -12,6 +12,7 @@ export default function PharmacyPage() {
   const [filter, setFilter] = useState<'all' | 'low_stock' | 'expired'>('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showDispenseModal, setShowDispenseModal] = useState(false)
+  const [showBulkModal, setShowBulkModal] = useState(false)
   const [selectedItem, setSelectedItem] = useState<any>(null)
 
   const params: Record<string, any> = { page_size: 20 }
@@ -46,6 +47,16 @@ export default function PharmacyPage() {
     onError: (error: any) => toast.error(error?.response?.data?.detail || 'Failed to dispense'),
   })
 
+  const bulkUpload = useMutation({
+    mutationFn: (file: File) => pharmacyService.bulkUpload(file),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['pharmacy'] })
+      toast.success(`Bulk upload: ${data.created} created, ${data.updated} updated${data.errors?.length ? `, ${data.errors.length} errors` : ''}`)
+      setShowBulkModal(false)
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.detail || 'Upload failed'),
+  })
+
   const lowStockCount = inventory?.results?.filter((i: any) => (i.quantity_on_hand ?? i.quantity) <= (i.reorder_level ?? 10)).length || 0
   const totalItems = inventory?.count || 0
 
@@ -58,9 +69,14 @@ export default function PharmacyPage() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">Manage medication inventory and dispensing</p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Add Item
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowBulkModal(true)} className="btn-ghost flex items-center gap-2 border border-gray-200">
+            <Upload className="w-4 h-4" /> Bulk Upload
+          </button>
+          <button onClick={() => setShowCreateModal(true)} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Add Item
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -160,11 +176,13 @@ export default function PharmacyPage() {
                       {safeFormat(item.expiry_date, 'MMM d, yyyy', '-')}
                     </td>
                     <td className="px-5 py-3 text-center">
-                      {isExpired ? (
+                      {qty === 0 ? (
+                        <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700 font-semibold">Out of Stock</span>
+                      ) : isExpired ? (
                         <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700">Expired</span>
                       ) : isLow ? (
                         <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-700 flex items-center gap-1 justify-center">
-                          <TrendingDown className="w-3 h-3" /> Low
+                          <TrendingDown className="w-3 h-3" /> Low Stock
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700">In Stock</span>
@@ -252,6 +270,32 @@ export default function PharmacyPage() {
                 </button>
               </div>
             </form>
+          </motion.div>
+        </div>
+      )}
+      {/* Bulk Upload Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl p-6 w-full max-w-md mx-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Bulk Upload Medications</h2>
+            <p className="text-sm text-gray-500 mb-4">Upload a CSV file to create or update medications and inventory in bulk.</p>
+            <div className="bg-gray-50 rounded-lg p-3 mb-4 text-xs text-gray-600 font-mono">
+              medication_name, generic_name, strength, form, quantity,<br />
+              unit_cost, batch_number, expiry_date, reorder_level
+            </div>
+            <input
+              type="file"
+              accept=".csv"
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100 mb-4"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) bulkUpload.mutate(file)
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowBulkModal(false)} className="btn-ghost">Cancel</button>
+            </div>
           </motion.div>
         </div>
       )}

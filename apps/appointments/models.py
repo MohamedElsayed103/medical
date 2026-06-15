@@ -91,3 +91,45 @@ class Appointment(BaseModel):
         from datetime import timedelta
 
         return self.scheduled_at + timedelta(minutes=self.duration_minutes)
+
+
+class DoctorAvailability(BaseModel):
+    """Weekly recurring availability windows for a doctor."""
+
+    doctor = models.ForeignKey(
+        DoctorProfile, on_delete=models.CASCADE, related_name="availability_windows"
+    )
+    day_of_week = models.PositiveSmallIntegerField(
+        help_text="0=Monday, 1=Tuesday, ..., 6=Sunday"
+    )
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "appointments_doctor_availability"
+        ordering = ["day_of_week", "start_time"]
+        unique_together = ("doctor", "day_of_week", "start_time")
+
+    def __str__(self):
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        return f"Dr.{self.doctor_id} {days[self.day_of_week]} {self.start_time}-{self.end_time}"
+
+
+class DoctorTimeOff(BaseModel):
+    """One-off time-off period for a doctor (overrides availability)."""
+
+    doctor = models.ForeignKey(
+        DoctorProfile, on_delete=models.CASCADE, related_name="time_off_periods"
+    )
+    start_at = models.DateTimeField()
+    end_at = models.DateTimeField()
+    reason = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        db_table = "appointments_doctor_time_off"
+        ordering = ["start_at"]
+        indexes = [models.Index(fields=["doctor", "start_at", "end_at"])]
+
+    def __str__(self):
+        return f"TimeOff({self.doctor_id}, {self.start_at.date()})"

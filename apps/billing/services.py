@@ -6,7 +6,7 @@ from decimal import Decimal
 import structlog
 from django.db import transaction
 
-from common.enums import InvoiceStatus
+from common.enums import InvoiceSourceType, InvoiceStatus
 from common.exceptions import ServiceError
 from common.utils import generate_invoice_number
 
@@ -56,8 +56,10 @@ class BillingService:
             subtotal += item.total_price
             item_objects.append(item)
 
-        # Convert tax_rate from percentage to decimal (e.g. 10 -> 0.10)
-        tax_multiplier = tax_rate / Decimal("100") if tax_rate > 1 else tax_rate
+        if not (Decimal("0") <= tax_rate <= Decimal("1")):
+            from common.exceptions import ServiceError
+            raise ServiceError("tax_rate must be a decimal fraction in [0, 1]. E.g. 0.10 for 10%.", code="INVALID_TAX_RATE")
+        tax_multiplier = tax_rate
         invoice.subtotal = subtotal
         invoice.tax_amount = subtotal * tax_multiplier
         invoice.total = subtotal + invoice.tax_amount - discount_amount
@@ -124,6 +126,17 @@ class BillingService:
 
         invoice.save(update_fields=["amount_paid", "status", "updated_at"])
 
+        # Sync pharmacy order status when invoice becomes PAID
+        if invoice.status == InvoiceStatus.PAID and invoice.source_type == "pharmacy_order" and invoice.source_id:
+            try:
+                from apps.pharmacy.models import PharmacyOrder, PharmacyOrderStatus
+                po = PharmacyOrder.objects.filter(id=invoice.source_id).first()
+                if po and po.status == PharmacyOrderStatus.AWAITING_PAYMENT:
+                    po.status = PharmacyOrderStatus.PAID
+                    po.save(update_fields=["status", "updated_at"])
+            except Exception:
+                logger.warning("pharmacy_order_status_sync_failed", source_id=str(invoice.source_id))
+
         logger.info(
             "payment_recorded",
             payment_id=str(payment.id),
@@ -154,4 +167,70 @@ class BillingService:
         invoice.status = InvoiceStatus.CANCELLED
         invoice.save(update_fields=["status", "updated_at"])
         logger.info("invoice_voided", invoice_id=str(invoice.id))
+        return invoice
+
+    @staticmethod
+    @transaction.atomic
+    def create_from_source(
+        *,
+        source_type: str,
+        source_id: str,
+        patient=None,
+        customer=None,
+        items: list[dict],
+        created_by_id: str = "",
+        tax_rate: Decimal = Decimal("0.00"),
+        discount_amount: Decimal = Decimal("0.00"),
+        notes: str = "",
+    ) -> "Invoice":
+        """
+        Create a DRAFT invoice linked to a source event.
+        Idempotent per (source_type, source_id): returns existing non-cancelled invoice.
+        """
+        existing = Invoice.objects.filter(
+            source_type=source_type, source_id=source_id
+        ).exclude(status=InvoiceStatus.CANCELLED).first()
+        if existing:
+            return existing
+
+        invoice = Invoice(
+            invoice_number=generate_invoice_number(),
+            patient=patient,
+            customer=customer,
+            source_type=source_type,
+            source_id=source_id,
+            discount_amount=discount_amount,
+            notes=notes,
+            status=InvoiceStatus.DRAFT,
+        )
+
+        subtotal = Decimal("0.00")
+        item_objects = []
+        for item_data in items:
+            item = InvoiceItem(
+                invoice=invoice,
+                item_type=item_data.get("item_type", "other"),
+                description=item_data["description"],
+                quantity=item_data.get("quantity", 1),
+                unit_price=Decimal(str(item_data.get("unit_price", "0.00"))),
+            )
+            item.total_price = item.unit_price * item.quantity
+            subtotal += item.total_price
+            item_objects.append(item)
+
+        invoice.subtotal = subtotal
+        invoice.tax_amount = subtotal * tax_rate
+        invoice.total = subtotal + invoice.tax_amount - discount_amount
+        invoice.save()
+
+        for item in item_objects:
+            item.invoice = invoice
+            item.save()
+
+        logger.info(
+            "invoice_created_from_source",
+            invoice_id=str(invoice.id),
+            source_type=source_type,
+            source_id=source_id,
+        )
         return invoice
