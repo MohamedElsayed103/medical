@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useBookAppointment, useDoctors } from '@/hooks/useAppointments'
 import { usePatients } from '@/hooks/usePatients'
 import { appointmentsService } from '@/services/api'
+import { formatClinicTime } from '@/lib/utils'
 
 const bookSchema = z.object({
   patient_id: z.string().min(1, 'Select a patient'),
@@ -171,7 +172,7 @@ export default function BookAppointmentModal({ isOpen, onClose }: Props) {
                     <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto pr-1">
                       {slots.map(slot => {
                         const slotIso = new Date(slot).toISOString()
-                        const label = format(new Date(slot), 'h:mm a')
+                        const label = formatClinicTime(slot)
                         return (
                           <button key={slot} type="button"
                             onClick={() => setValue('scheduled_at', slotIso)}

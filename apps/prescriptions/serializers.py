@@ -7,10 +7,35 @@ from .models import Medication, Prescription, PrescriptionItem
 
 
 class MedicationSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+    is_active = serializers.BooleanField(default=True, required=False)
+
     class Meta:
         model = Medication
-        fields = ["id", "name", "generic_name", "form", "strength", "manufacturer", "is_active"]
-        read_only_fields = ["id"]
+        fields = [
+            "id",
+            "name",
+            "generic_name",
+            "form",
+            "strength",
+            "manufacturer",
+            "image",
+            "image_url",
+            "description",
+            "side_effects",
+            "contraindications",
+            "storage_instructions",
+            "is_active",
+        ]
+        read_only_fields = ["id", "image_url"]
+        extra_kwargs = {"image": {"write_only": True, "required": False}}
+
+    def get_image_url(self, obj) -> str | None:
+        if not obj.image:
+            return None
+        request = self.context.get("request")
+        url = obj.image.url
+        return request.build_absolute_uri(url) if request else url
 
 
 class PrescriptionItemSerializer(serializers.ModelSerializer):

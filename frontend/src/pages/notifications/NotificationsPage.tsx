@@ -66,11 +66,28 @@ export default function NotificationsPage() {
               </label>
             ))}
           </div>
-          {(prefs.quiet_hours_start || prefs.quiet_hours_end) && (
-            <p className="mt-3 text-sm text-gray-500">
-              Quiet hours: {prefs.quiet_hours_start} - {prefs.quiet_hours_end}
-            </p>
-          )}
+          <div className="mt-5 pt-4 border-t border-gray-100">
+            <p className="text-sm font-medium text-gray-700 mb-2">Quiet Hours</p>
+            <p className="text-xs text-gray-400 mb-3">During these hours, only in-app notifications are delivered (SMS/push/email are held).</p>
+            <div className="flex items-center gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">From</label>
+                <input type="time" value={prefs.quiet_hours_start?.slice(0, 5) || ''}
+                  onChange={(e) => updatePrefs.mutate({ quiet_hours_start: e.target.value || null })}
+                  className="input-field w-auto text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">To</label>
+                <input type="time" value={prefs.quiet_hours_end?.slice(0, 5) || ''}
+                  onChange={(e) => updatePrefs.mutate({ quiet_hours_end: e.target.value || null })}
+                  className="input-field w-auto text-sm" />
+              </div>
+              {(prefs.quiet_hours_start || prefs.quiet_hours_end) && (
+                <button onClick={() => updatePrefs.mutate({ quiet_hours_start: null, quiet_hours_end: null })}
+                  className="text-xs text-gray-500 hover:text-red-500 mt-5">Clear</button>
+              )}
+            </div>
+          </div>
         </motion.div>
       )}
 

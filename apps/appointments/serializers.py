@@ -39,8 +39,22 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
             return "Unknown"
 
 
+def _resolve_doctor_name(doctor) -> str:
+    """Resolve a DoctorProfile's display name via its cross-schema user_id."""
+    if doctor is None:
+        return ""
+    from apps.accounts.models import User
+    try:
+        user = User.objects.get(pk=doctor.user_id)
+        name = f"{user.first_name} {user.last_name}".strip()
+        return f"Dr. {name}" if name else user.email
+    except User.DoesNotExist:
+        return "Unknown"
+
+
 class AppointmentSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source="patient.full_name", read_only=True)
+    doctor_name = serializers.SerializerMethodField()
     doctor_specialization = serializers.CharField(source="doctor.specialization", read_only=True)
 
     class Meta:
@@ -50,6 +64,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "patient",
             "patient_name",
             "doctor",
+            "doctor_name",
             "doctor_specialization",
             "scheduled_at",
             "duration_minutes",
@@ -69,6 +84,9 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def get_doctor_name(self, obj) -> str:
+        return _resolve_doctor_name(obj.doctor)
 
 
 class BookAppointmentSerializer(serializers.Serializer):
@@ -97,6 +115,7 @@ class AvailableSlotsSerializer(serializers.Serializer):
 
 class AppointmentListSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source="patient.full_name", read_only=True)
+    doctor_name = serializers.SerializerMethodField()
     doctor_specialization = serializers.CharField(source="doctor.specialization", read_only=True)
 
     class Meta:
@@ -106,6 +125,7 @@ class AppointmentListSerializer(serializers.ModelSerializer):
             "patient",
             "patient_name",
             "doctor",
+            "doctor_name",
             "doctor_specialization",
             "scheduled_at",
             "duration_minutes",
@@ -113,14 +133,27 @@ class AppointmentListSerializer(serializers.ModelSerializer):
             "type",
         ]
 
+    def get_doctor_name(self, obj) -> str:
+        return _resolve_doctor_name(obj.doctor)
+
 
 class DoctorAvailabilitySerializer(serializers.ModelSerializer):
+    # `doctor_id` (the FK attname) is read-only by default in DRF; declare it
+    # explicitly so the window can actually be assigned to a doctor on create.
+    doctor_id = serializers.PrimaryKeyRelatedField(
+        source="doctor", queryset=DoctorProfile.objects.all()
+    )
+
     class Meta:
         model = DoctorAvailability
         fields = ["id", "doctor_id", "day_of_week", "start_time", "end_time", "is_active"]
 
 
 class DoctorTimeOffSerializer(serializers.ModelSerializer):
+    doctor_id = serializers.PrimaryKeyRelatedField(
+        source="doctor", queryset=DoctorProfile.objects.all()
+    )
+
     class Meta:
         model = DoctorTimeOff
         fields = ["id", "doctor_id", "start_at", "end_at", "reason"]

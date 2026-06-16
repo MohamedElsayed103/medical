@@ -49,6 +49,28 @@ class NotificationViewSet(
         count = NotificationService.get_unread_count(str(request.user.id))
         return Response({"unread_count": count})
 
+    @action(detail=False, methods=["post"], url_path="register-device")
+    def register_device(self, request):
+        """POST /api/v1/notifications/register-device/ — store a push token for this user."""
+        from .models import PushDevice
+        token = request.data.get("token")
+        if not token:
+            return Response({"error": {"code": "NO_TOKEN", "message": "token is required"}},
+                            status=status.HTTP_400_BAD_REQUEST)
+        device, _ = PushDevice.objects.update_or_create(
+            user_id=request.user.id, token=token,
+            defaults={"platform": request.data.get("platform", "web"), "is_active": True},
+        )
+        return Response({"id": str(device.id), "platform": device.platform}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="unregister-device")
+    def unregister_device(self, request):
+        """POST /api/v1/notifications/unregister-device/ — deactivate a push token."""
+        from .models import PushDevice
+        token = request.data.get("token")
+        PushDevice.objects.filter(user_id=request.user.id, token=token).update(is_active=False)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class NotificationPreferenceViewSet(
     mixins.RetrieveModelMixin,

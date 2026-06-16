@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { Plus, Trash2, Clock, CalendarOff, CalendarCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { availabilityService, appointmentsService } from '@/services/api'
-import { safeFormat } from '@/lib/utils'
+import { formatClinicDateTime } from '@/lib/utils'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
@@ -192,7 +192,7 @@ export default function DoctorAvailabilityPage() {
                   className="flex items-center justify-between px-5 py-3">
                   <div>
                     <p className="text-sm font-medium text-gray-800">
-                      {safeFormat(t.start_at, 'MMM d, HH:mm')} → {safeFormat(t.end_at, 'MMM d, HH:mm')}
+                      {formatClinicDateTime(t.start_at)} → {formatClinicDateTime(t.end_at)}
                     </p>
                     {t.reason && <p className="text-xs text-gray-500 mt-0.5">{t.reason}</p>}
                   </div>

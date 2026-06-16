@@ -65,19 +65,67 @@ class SMSChannel:
             logger.warning("sms_recipient_no_phone", recipient_id=recipient_id)
             return False
 
-        # TODO: Integrate with Twilio / AWS SNS
-        logger.info("sms_notification_sent", to=phone, body=body[:50])
-        return True
+        sid = getattr(settings, "TWILIO_ACCOUNT_SID", "")
+        token = getattr(settings, "TWILIO_AUTH_TOKEN", "")
+        from_number = getattr(settings, "TWILIO_FROM_NUMBER", "")
+        if not (sid and token and from_number):
+            logger.info("sms_not_configured", to=phone, body=body[:50])
+            return False
+
+        try:
+            from twilio.rest import Client  # optional dependency
+        except ImportError:
+            logger.warning("sms_twilio_not_installed")
+            return False
+
+        try:
+            Client(sid, token).messages.create(
+                to=phone, from_=from_number, body=f"{title}\n{body}"[:1500]
+            )
+            logger.info("sms_notification_sent", to=phone)
+            return True
+        except Exception as exc:
+            logger.error("sms_notification_failed", to=phone, error=str(exc))
+            return False
 
 
 class PushChannel:
-    """Sends push notification (integration placeholder)."""
+    """Sends push notifications to a user's registered devices via FCM.
+
+    No-ops cleanly when FCM is unconfigured or the user has no devices.
+    """
 
     @staticmethod
     def send(*, recipient_id: str, title: str, body: str, data: dict | None = None, **kwargs) -> bool:
-        # TODO: Integrate with FCM / APNs — requires device_token storage
-        logger.info("push_notification_queued", recipient_id=recipient_id, title=title)
-        return True
+        from .models import PushDevice
+
+        tokens = list(
+            PushDevice.objects.filter(user_id=recipient_id, is_active=True)
+            .values_list("token", flat=True)
+        )
+        if not tokens:
+            logger.info("push_no_devices", recipient_id=recipient_id)
+            return False
+
+        server_key = getattr(settings, "FCM_SERVER_KEY", "")
+        if not server_key:
+            logger.info("push_not_configured", recipient_id=recipient_id, devices=len(tokens))
+            return False
+
+        try:
+            import httpx
+            resp = httpx.post(
+                "https://fcm.googleapis.com/fcm/send",
+                headers={"Authorization": f"key={server_key}", "Content-Type": "application/json"},
+                json={"registration_ids": tokens, "notification": {"title": title, "body": body}, "data": data or {}},
+                timeout=10,
+            )
+            ok = resp.status_code == 200
+            logger.info("push_notification_sent", recipient_id=recipient_id, devices=len(tokens), ok=ok)
+            return ok
+        except Exception as exc:
+            logger.error("push_notification_failed", recipient_id=recipient_id, error=str(exc))
+            return False
 
 
 class InAppChannel:

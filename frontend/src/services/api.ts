@@ -41,7 +41,35 @@ import type {
   InsuranceProvider,
   InsurancePolicy,
   InsuranceClaim,
+  RadiologyOrder,
+  RadiologyOrderCreateRequest,
+  TimelineEvent,
+  PatientSummary,
+  PatientDocument,
 } from '@/types'
+
+// When sending FormData (file uploads), clear the default JSON Content-Type so
+// the browser sets `multipart/form-data` with the correct boundary. Axios would
+// otherwise serialize the FormData to JSON and drop the file.
+function multipartConfig(data: unknown) {
+  if (typeof FormData !== 'undefined' && data instanceof FormData) {
+    return { headers: { 'Content-Type': undefined } as any }
+  }
+  return undefined
+}
+
+export interface SearchHit { id: string; label: string; sublabel: string; link: string }
+export interface SearchResults {
+  patients: SearchHit[]
+  invoices: SearchHit[]
+  lab_orders: SearchHit[]
+  radiology_orders: SearchHit[]
+}
+
+export const searchService = {
+  query: (q: string) =>
+    api.get<SearchResults>('/search/', { params: { q } }).then(r => r.data),
+}
 
 // ============================================
 // AUTH SERVICE
@@ -159,6 +187,21 @@ export const patientsService = {
 
   getInvoices: (id: string, params?: Record<string, string | number>) =>
     api.get<PaginatedResponse<Invoice>>(`/patients/${id}/invoices/`, { params }).then(r => r.data),
+
+  getTimeline: (id: string, params?: Record<string, string | number>) =>
+    api.get<TimelineEvent[]>(`/patients/${id}/timeline/`, { params }).then(r => r.data),
+
+  getSummary: (id: string) =>
+    api.get<PatientSummary>(`/patients/${id}/summary/`).then(r => r.data),
+
+  getDocuments: (id: string) =>
+    api.get<PaginatedResponse<PatientDocument>>(`/patients/${id}/documents/`).then(r => r.data),
+
+  uploadDocument: (id: string, data: FormData) =>
+    api.post<PatientDocument>(`/patients/${id}/documents/`, data, multipartConfig(data)).then(r => r.data),
+
+  deleteDocument: (docId: string) =>
+    api.delete(`/documents/${docId}/`).then(r => r.data),
 }
 
 // ============================================
@@ -244,6 +287,14 @@ export const visitsService = {
 
   addDiagnosis: (visitId: string, data: DiagnosisCreateRequest) =>
     api.post<Diagnosis>(`/visits/${visitId}/diagnoses/`, data).then(r => r.data),
+
+  // Linked orders (prescriptions / lab / radiology)
+  getRelated: (visitId: string) =>
+    api.get<{
+      prescriptions: { id: string; label: string; status: string; link: string }[]
+      lab_orders: { id: string; label: string; status: string; link: string }[]
+      radiology_orders: { id: string; label: string; status: string; link: string }[]
+    }>(`/visits/${visitId}/related/`).then(r => r.data),
 }
 
 // ============================================
@@ -269,11 +320,14 @@ export const prescriptionsService = {
   getMedications: (params?: Record<string, string | number>) =>
     api.get<PaginatedResponse<Medication>>('/prescriptions/medications/', { params }).then(r => r.data),
 
-  createMedication: (data: Partial<Medication>) =>
-    api.post<Medication>('/prescriptions/medications/', data).then(r => r.data),
+  getMedicationById: (id: string) =>
+    api.get<Medication>(`/prescriptions/medications/${id}/`).then(r => r.data),
 
-  updateMedication: (id: string, data: Partial<Medication>) =>
-    api.patch<Medication>(`/prescriptions/medications/${id}/`, data).then(r => r.data),
+  createMedication: (data: Partial<Medication> | FormData) =>
+    api.post<Medication>('/prescriptions/medications/', data, multipartConfig(data)).then(r => r.data),
+
+  updateMedication: (id: string, data: Partial<Medication> | FormData) =>
+    api.patch<Medication>(`/prescriptions/medications/${id}/`, data, multipartConfig(data)).then(r => r.data),
 }
 
 // ============================================
@@ -361,6 +415,12 @@ export const notificationsService = {
 
   updatePreferences: (data: Partial<NotificationPreferences>) =>
     api.patch<NotificationPreferences>('/notifications/preferences/', data).then(r => r.data),
+
+  registerDevice: (token: string, platform = 'web') =>
+    api.post('/notifications/register-device/', { token, platform }).then(r => r.data),
+
+  unregisterDevice: (token: string) =>
+    api.post('/notifications/unregister-device/', { token }).then(r => r.data),
 }
 
 // ============================================
@@ -462,18 +522,18 @@ export const availabilityService = {
 // ============================================
 export const radiologyService = {
   getOrders: (params?: Record<string, string | number>) =>
-    api.get('/radiology/orders/', { params }).then(r => r.data),
+    api.get<PaginatedResponse<RadiologyOrder>>('/radiology/orders/', { params }).then(r => r.data),
 
-  createOrder: (data: any) =>
-    api.post('/radiology/orders/', data).then(r => r.data),
+  createOrder: (data: RadiologyOrderCreateRequest) =>
+    api.post<RadiologyOrder>('/radiology/orders/', data).then(r => r.data),
 
   getOrder: (id: string) =>
-    api.get(`/radiology/orders/${id}/`).then(r => r.data),
+    api.get<RadiologyOrder>(`/radiology/orders/${id}/`).then(r => r.data),
 
   transition: (id: string, status: string) =>
-    api.post(`/radiology/orders/${id}/transition/`, { status }).then(r => r.data),
+    api.post<RadiologyOrder>(`/radiology/orders/${id}/transition/`, { status }).then(r => r.data),
 
-  recordReport: (id: string, data: any) =>
+  recordReport: (id: string, data: { study_id: string; findings: string; impression?: string; is_critical?: boolean }) =>
     api.post(`/radiology/orders/${id}/report/`, data).then(r => r.data),
 }
 

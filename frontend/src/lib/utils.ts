@@ -44,6 +44,42 @@ export function formatTime(date: string | Date): string {
   })
 }
 
+/**
+ * Format a time in the CLINIC clock (UTC), not the browser's timezone.
+ *
+ * Appointment/availability times are stored and authored as UTC wall-clock
+ * (the backend runs with TIME_ZONE="UTC" and doctor availability is naive
+ * UTC). Displaying them with the browser's local timezone would shift e.g.
+ * a 09:00 window to "2:00 PM" for a UTC+5 user. These helpers keep the
+ * displayed time identical to what the doctor configured.
+ */
+export function formatClinicTime(dateStr: string | null | undefined, fallback = '—'): string {
+  if (!dateStr) return fallback
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return fallback
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC', hour: 'numeric', minute: '2-digit', hour12: true,
+  }).format(d)
+}
+
+export function formatClinicDateTime(dateStr: string | null | undefined, fallback = '—'): string {
+  if (!dateStr) return fallback
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return fallback
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  }).format(d)
+}
+
+/** UTC calendar day (yyyy-mm-dd) for an ISO datetime — for date bucketing. */
+export function clinicDayKey(dateStr: string | null | undefined): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+  return d.toISOString().slice(0, 10)
+}
+
 export function getInitials(name: string): string {
   return name
     .split(' ')

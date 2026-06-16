@@ -148,6 +148,16 @@ class NotificationChannel(models.TextChoices):
     PUSH = "push", "Push Notification"
 
 
+class DocumentCategory(models.TextChoices):
+    LAB = "lab", "Lab Report"
+    IMAGING = "imaging", "Imaging"
+    ID = "id", "ID Document"
+    INSURANCE = "insurance", "Insurance"
+    CONSENT = "consent", "Consent Form"
+    REFERRAL = "referral", "Referral"
+    OTHER = "other", "Other"
+
+
 class InvoiceItemType(models.TextChoices):
     CONSULTATION = "consultation", "Consultation"
     PROCEDURE = "procedure", "Procedure"

@@ -84,6 +84,41 @@ class VisitViewSet(ModelViewSet):
         visit = VisitService.sign_visit(visit)
         return Response(VisitSerializer(visit).data)
 
+    @action(detail=True, methods=["get"])
+    def related(self, request, pk=None):
+        """GET /api/v1/visits/{id}/related/ — orders linked to this visit."""
+        visit = self.get_object()
+        from apps.prescriptions.models import Prescription
+        from apps.lab_results.models import LabOrder
+
+        prescriptions = [{
+            "id": str(rx.id),
+            "label": ", ".join(i.medication.name for i in rx.items.all()[:3]) or "Prescription",
+            "status": "dispensed" if rx.is_dispensed else "active",
+            "link": f"/prescriptions/{rx.id}",
+        } for rx in Prescription.objects.filter(visit=visit).prefetch_related("items__medication")]
+
+        lab_orders = [{
+            "id": str(o.id), "label": o.order_number, "status": o.status,
+            "link": f"/lab-orders/{o.id}",
+        } for o in LabOrder.objects.filter(visit=visit)]
+
+        radiology_orders = []
+        try:
+            from apps.radiology.models import RadiologyOrder
+            radiology_orders = [{
+                "id": str(o.id), "label": o.order_number, "status": o.status,
+                "link": f"/radiology/{o.id}",
+            } for o in RadiologyOrder.objects.filter(visit=visit)]
+        except Exception:
+            pass
+
+        return Response({
+            "prescriptions": prescriptions,
+            "lab_orders": lab_orders,
+            "radiology_orders": radiology_orders,
+        })
+
     @action(detail=True, methods=["post", "get"])
     def vitals(self, request, pk=None):
         visit = self.get_object()

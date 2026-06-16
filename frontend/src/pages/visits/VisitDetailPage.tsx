@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { ArrowLeft, CheckCircle, Plus, Heart, Thermometer, Activity } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Plus, Heart, Thermometer, Activity, Pill, FlaskConical, ScanLine } from 'lucide-react'
 import { safeFormat } from '@/lib/utils'
 import { useVisit, useSignVisit, useAddVitals, useAddDiagnosis } from '@/hooks/useVisits'
+import { visitsService } from '@/services/api'
+import StatusChip from '@/components/ui/StatusChip'
 import { useForm } from 'react-hook-form'
 import type { VitalsCreateRequest, DiagnosisCreateRequest } from '@/types'
 
@@ -18,6 +21,11 @@ export default function VisitDetailPage() {
 
   const vitalsForm = useForm<VitalsCreateRequest>()
   const diagnosisForm = useForm<DiagnosisCreateRequest>()
+  const { data: related } = useQuery({
+    queryKey: ['visit-related', id],
+    queryFn: () => visitsService.getRelated(id!),
+    enabled: !!id,
+  })
 
   if (isLoading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" /></div>
   if (!visit) return <div className="text-center py-16"><p className="text-gray-500">Visit not found</p></div>
@@ -172,6 +180,36 @@ export default function VisitDetailPage() {
           </form>
         )}
       </motion.div>
+
+      {/* Linked orders */}
+      {related && (related.prescriptions.length + related.lab_orders.length + related.radiology_orders.length) > 0 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-white rounded-2xl shadow-soft border border-gray-100 p-6">
+          <h3 className="font-semibold text-gray-900 mb-4">Orders from this Visit</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <LinkedGroup title="Prescriptions" icon={<Pill className="w-4 h-4 text-purple-500" />} items={related.prescriptions} />
+            <LinkedGroup title="Lab Orders" icon={<FlaskConical className="w-4 h-4 text-amber-500" />} items={related.lab_orders} />
+            <LinkedGroup title="Radiology" icon={<ScanLine className="w-4 h-4 text-cyan-500" />} items={related.radiology_orders} />
+          </div>
+        </motion.div>
+      )}
+    </div>
+  )
+}
+
+function LinkedGroup({ title, icon, items }: { title: string; icon: React.ReactNode; items: { id: string; label: string; status: string; link: string }[] }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-gray-500 uppercase mb-2 flex items-center gap-1.5">{icon} {title}</p>
+      {items.length ? (
+        <div className="space-y-1.5">
+          {items.map(it => (
+            <Link key={it.id} to={it.link} className="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100">
+              <span className="text-sm text-gray-800 truncate">{it.label}</span>
+              <StatusChip status={it.status} />
+            </Link>
+          ))}
+        </div>
+      ) : <p className="text-sm text-gray-400">None</p>}
     </div>
   )
 }

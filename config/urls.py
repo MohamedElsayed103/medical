@@ -4,6 +4,8 @@ Root URL configuration.
 Tenant-aware: public schema routes include admin + tenant management.
 Tenant schemas route to app-specific API endpoints.
 """
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
@@ -36,4 +38,10 @@ urlpatterns = [
     path("api/v1/insurance/", include("apps.insurance.urls", namespace="insurance")),
     path("api/v1/radiology/", include("apps.radiology.urls", namespace="radiology")),
     path("api/v1/customers/", include("apps.patients.urls_customers", namespace="customers")),
+    path("api/v1/documents/", include("apps.patients.urls_documents", namespace="documents")),
+    path("api/v1/search/", include("apps.search.urls", namespace="search")),
 ]
+
+# Serve user-uploaded media (medication images, etc.) in development.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

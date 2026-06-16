@@ -34,6 +34,7 @@ TENANT_DOMAIN_MODEL = "tenants.Domain"
 
 SHARED_APPS = [
     "django_tenants",
+    "daphne",  # serves ASGI (WebSocket) via runserver; must precede staticfiles
     "django.contrib.contenttypes",
     "django.contrib.auth",
     "django.contrib.sessions",
@@ -447,6 +448,18 @@ SECURE_BROWSER_XSS_FILTER = True
 # ──────────────────────────────────────────────
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Media files (user uploads — e.g. medication images)
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# ──────────────────────────────────────────────
+# Notification providers (optional — channels no-op cleanly if unset)
+# ──────────────────────────────────────────────
+TWILIO_ACCOUNT_SID = env("TWILIO_ACCOUNT_SID", default="")
+TWILIO_AUTH_TOKEN = env("TWILIO_AUTH_TOKEN", default="")
+TWILIO_FROM_NUMBER = env("TWILIO_FROM_NUMBER", default="")
+FCM_SERVER_KEY = env("FCM_SERVER_KEY", default="")
 
 # ──────────────────────────────────────────────
 # Email

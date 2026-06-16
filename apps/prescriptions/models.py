@@ -22,6 +22,11 @@ class Medication(BaseModel):
     form = models.CharField(max_length=20, choices=MedicationForm.choices)
     strength = models.CharField(max_length=50)
     manufacturer = models.CharField(max_length=200, blank=True)
+    image = models.ImageField(upload_to="medications/", null=True, blank=True)
+    description = models.TextField(blank=True, help_text="What the drug is and what it treats")
+    side_effects = models.TextField(blank=True)
+    contraindications = models.TextField(blank=True)
+    storage_instructions = models.CharField(max_length=255, blank=True)
     is_active = models.BooleanField(default=True)
 
     class Meta:

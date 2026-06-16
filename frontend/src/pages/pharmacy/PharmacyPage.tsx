@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Pill, Plus, Search, Package, AlertTriangle, TrendingDown, CheckCircle, Upload } from 'lucide-react'
 import { safeFormat } from '@/lib/utils'
@@ -163,7 +164,13 @@ export default function PharmacyPage() {
                 return (
                   <motion.tr key={item.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="hover:bg-gray-50">
                     <td className="px-5 py-3">
-                      <p className="font-medium text-gray-900">{item.medication_name || item.name || '—'}</p>
+                      {item.medication ? (
+                        <Link to={`/medications/${item.medication}`} className="font-medium text-gray-900 hover:text-primary-600 hover:underline">
+                          {item.medication_name || item.name || '—'}
+                        </Link>
+                      ) : (
+                        <p className="font-medium text-gray-900">{item.medication_name || item.name || '—'}</p>
+                      )}
                       <p className="text-xs text-gray-500">{item.medication_generic || item.generic_name || ''}</p>
                     </td>
                     <td className="px-5 py-3 text-sm text-gray-600">{item.location || '-'}</td>

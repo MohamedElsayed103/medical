@@ -42,6 +42,16 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {  # noqa: F405
     "user": "5000/min",
 }
 
+# Store uploaded files (e.g. medication images) on the local filesystem in dev,
+# since MinIO/S3 is not running. Served via MEDIA_URL (see config/urls.py).
+DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+
+# In-memory channel layer for dev so the real-time WebSocket works under a
+# single-process `runserver` (daphne) without a running Redis.
+CHANNEL_LAYERS = {
+    "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
+}
+
 # Email — console backend for dev (emails printed directly in terminal)
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "noreply@medflow.com"

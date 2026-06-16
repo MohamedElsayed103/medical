@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek } from 'date-fns'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, startOfWeek, endOfWeek } from 'date-fns'
 import { Plus, Search, Calendar as CalendarIcon, List, Clock, CheckCircle, XCircle, Play, AlertTriangle } from 'lucide-react'
-import { safeFormat } from '@/lib/utils'
+import { formatClinicDateTime, clinicDayKey } from '@/lib/utils'
 import { useAppointments, useAppointmentAction, useDoctors } from '@/hooks/useAppointments'
 import BookAppointmentModal from './BookAppointmentModal'
 
 export default function AppointmentsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -60,10 +61,8 @@ export default function AppointmentsPage() {
 
   const getAppointmentsForDay = (day: Date) => {
     if (!data?.results) return []
-    return data.results.filter(apt => {
-      const aptDate = new Date(apt.scheduled_at)
-      return isSameDay(aptDate, day)
-    })
+    const key = format(day, 'yyyy-MM-dd')
+    return data.results.filter(apt => clinicDayKey(apt.scheduled_at) === key)
   }
 
   return (
@@ -108,6 +107,18 @@ export default function AppointmentsPage() {
           />
         </div>
         <select
+          value={doctorFilter}
+          onChange={(e) => { setDoctorFilter(e.target.value); setPage(1) }}
+          className="input-field w-auto"
+        >
+          <option value="">All Doctors</option>
+          {doctors?.results?.map(doc => (
+            <option key={doc.id} value={doc.id}>
+              Dr. {doc.user_name}{doc.specialization ? ` — ${doc.specialization}` : ''}
+            </option>
+          ))}
+        </select>
+        <select
           value={statusFilter}
           onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}
           className="input-field w-auto"
@@ -144,7 +155,8 @@ export default function AppointmentsPage() {
                   key={apt.id}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="flex items-center gap-4 p-5 hover:bg-gray-50/50 transition-colors"
+                  onClick={() => navigate(`/appointments/${apt.id}`)}
+                  className="flex items-center gap-4 p-5 hover:bg-gray-50/50 transition-colors cursor-pointer"
                 >
                   <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center">
                     <Clock className="w-5 h-5 text-primary-600" />
@@ -152,7 +164,7 @@ export default function AppointmentsPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-gray-900">{apt.patient_name || 'Patient'}</p>
                     <p className="text-sm text-gray-500">
-                      Dr. {apt.doctor_name || 'Unknown'} • {safeFormat(apt.scheduled_at, 'MMM d, yyyy h:mm a')}
+                      Dr. {apt.doctor_name || 'Unknown'} • {formatClinicDateTime(apt.scheduled_at)}
                       {apt.duration_minutes && ` • ${apt.duration_minutes} min`}
                     </p>
                     {apt.reason && <p className="text-xs text-gray-400 mt-0.5">{apt.reason}</p>}
@@ -161,7 +173,7 @@ export default function AppointmentsPage() {
                     {apt.status?.replace('_', ' ')}
                   </span>
                   {/* Action Buttons */}
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     {apt.status === 'scheduled' && (
                       <button
                         onClick={() => handleAction(apt.id, 'confirm')}
@@ -238,16 +250,6 @@ export default function AppointmentsPage() {
             <button onClick={() => setCurrentMonth(d => new Date(d.getFullYear(), d.getMonth() - 1))} className="p-2 hover:bg-gray-100 rounded-lg">&lt;</button>
             <h2 className="text-lg font-semibold text-gray-900">{format(currentMonth, 'MMMM yyyy')}</h2>
             <button onClick={() => setCurrentMonth(d => new Date(d.getFullYear(), d.getMonth() + 1))} className="p-2 hover:bg-gray-100 rounded-lg">&gt;</button>
-            <select
-              value={doctorFilter}
-              onChange={e => setDoctorFilter(e.target.value)}
-              className="input-field text-sm py-1.5 max-w-[200px]"
-            >
-              <option value="">All Doctors</option>
-              {doctors?.results?.map(doc => (
-                <option key={doc.id} value={doc.id}>{doc.user_name}</option>
-              ))}
-            </select>
           </div>
           <div className="grid grid-cols-7 gap-1">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
@@ -268,7 +270,8 @@ export default function AppointmentsPage() {
                     {format(day, 'd')}
                   </p>
                   {dayAppointments.slice(0, 2).map(apt => (
-                    <div key={apt.id} className={`text-[10px] px-1 py-0.5 rounded mb-0.5 truncate ${getStatusColor(apt.status)}`}>
+                    <div key={apt.id} onClick={() => navigate(`/appointments/${apt.id}`)}
+                      className={`text-[10px] px-1 py-0.5 rounded mb-0.5 truncate cursor-pointer ${getStatusColor(apt.status)}`}>
                       {apt.patient_name?.split(' ')[0] || 'Apt'}
                       {apt.doctor_name && <span className="text-xs opacity-70"> · {apt.doctor_name}</span>}
                     </div>

@@ -52,13 +52,13 @@ class RadiologyOrderViewSet(ModelViewSet):
         if d.get("patient_id"):
             from apps.patients.models import Patient
             try:
-                patient = Patient.objects.get(id=d["patient_id"], is_deleted=False)
+                patient = Patient.objects.get(id=d["patient_id"])
             except Patient.DoesNotExist:
                 return Response({"detail": "Patient not found."}, status=status.HTTP_404_NOT_FOUND)
         elif d.get("customer_id"):
             from apps.patients.models import Customer
             try:
-                customer = Customer.objects.get(id=d["customer_id"], is_deleted=False)
+                customer = Customer.objects.get(id=d["customer_id"])
             except Customer.DoesNotExist:
                 return Response({"detail": "Customer not found."}, status=status.HTTP_404_NOT_FOUND)
         elif d.get("customer_name") and d.get("customer_phone"):
@@ -76,7 +76,7 @@ class RadiologyOrderViewSet(ModelViewSet):
         if d.get("doctor_id"):
             from apps.appointments.models import DoctorProfile
             try:
-                doctor = DoctorProfile.objects.get(id=d["doctor_id"], is_deleted=False)
+                doctor = DoctorProfile.objects.get(id=d["doctor_id"])
             except DoctorProfile.DoesNotExist:
                 pass
 

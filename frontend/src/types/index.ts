@@ -331,6 +331,12 @@ export interface Medication {
   strength: string
   manufacturer: string | null
   is_active: boolean
+  image?: string | null
+  image_url?: string | null
+  description?: string | null
+  side_effects?: string | null
+  contraindications?: string | null
+  storage_instructions?: string | null
 }
 
 export interface PrescriptionItem {
@@ -392,7 +398,9 @@ export interface TestResult {
   reference_range_low: string | null
   reference_range_high: string | null
   interpretation: string | null
+  flag?: string | null
   recorded_at: string
+  resulted_at?: string | null
   verified_at: string | null
   verified_by: string | null
 }
@@ -416,6 +424,8 @@ export interface LabOrder {
   doctor_id: string
   doctor_name: string
   visit_id: string | null
+  visit?: string | null
+  invoice?: string | null
   status: string
   priority: string
   clinical_notes: string | null
@@ -697,4 +707,114 @@ export interface DashboardStats {
 export interface SelectOption {
   value: string
   label: string
+}
+
+// ============================================
+// Patient 360 Types
+// ============================================
+export interface TimelineEvent {
+  type: 'visit' | 'prescription' | 'lab_order' | 'radiology_order' | 'invoice'
+  id: string
+  occurred_at: string
+  title: string
+  subtitle: string
+  status: string
+  link: string
+}
+
+export interface PatientSummary {
+  active_medications: string[]
+  open_lab_orders: number
+  outstanding_balance: string
+  visit_count: number
+}
+
+export const DOCUMENT_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'lab', label: 'Lab Report' },
+  { value: 'imaging', label: 'Imaging' },
+  { value: 'id', label: 'ID Document' },
+  { value: 'insurance', label: 'Insurance' },
+  { value: 'consent', label: 'Consent Form' },
+  { value: 'referral', label: 'Referral' },
+  { value: 'other', label: 'Other' },
+]
+
+export interface PatientDocument {
+  id: string
+  patient: string
+  category: string
+  filename: string
+  content_type: string
+  size: number
+  description: string
+  file_url: string | null
+  uploaded_by_id: string | null
+  created_at: string
+}
+
+// ============================================
+// Radiology Types
+// ============================================
+export const RADIOLOGY_MODALITIES: { value: string; label: string }[] = [
+  { value: 'xray', label: 'X-Ray' },
+  { value: 'ct', label: 'CT Scan' },
+  { value: 'mri', label: 'MRI' },
+  { value: 'ultrasound', label: 'Ultrasound' },
+  { value: 'mammography', label: 'Mammography' },
+  { value: 'fluoroscopy', label: 'Fluoroscopy' },
+  { value: 'pet', label: 'PET Scan' },
+]
+
+export interface RadiologyReport {
+  id: string
+  findings: string
+  impression: string
+  is_critical: boolean
+  reported_by_id: string | null
+  reported_at: string
+  image_object_key: string | null
+}
+
+export interface RadiologyStudy {
+  id: string
+  modality: string
+  body_part: string
+  description: string
+  performed_by_id: string | null
+  performed_at: string | null
+  report?: RadiologyReport | null
+}
+
+export interface RadiologyOrder {
+  id: string
+  order_number: string
+  status: string
+  priority: string
+  patient_id: string | null
+  customer_id: string | null
+  doctor_id: string | null
+  visit_id: string | null
+  orderer_name: string
+  orderer_type: string
+  clinical_notes: string
+  invoice_id: string | null
+  ordered_at: string
+  completed_at: string | null
+  studies: RadiologyStudy[]
+}
+
+export interface RadiologyStudyInput {
+  modality: string
+  body_part: string
+  description?: string
+}
+
+export interface RadiologyOrderCreateRequest {
+  patient_id?: string | null
+  customer_name?: string
+  customer_phone?: string
+  doctor_id?: string | null
+  priority?: string
+  clinical_notes?: string
+  studies: RadiologyStudyInput[]
 }

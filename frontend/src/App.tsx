@@ -31,6 +31,12 @@ const AuditLogPage = lazy(() => import('@/pages/audit/AuditLogPage'))
 const DoctorAvailabilityPage = lazy(() => import('@/pages/appointments/DoctorAvailabilityPage'))
 const LabOrderDetailPage = lazy(() => import('@/pages/lab-orders/LabOrderDetailPage'))
 const InvoiceDetailPage = lazy(() => import('@/pages/billing/InvoiceDetailPage'))
+const PrescriptionDetailPage = lazy(() => import('@/pages/prescriptions/PrescriptionDetailPage'))
+const RadiologyOrderDetailPage = lazy(() => import('@/pages/radiology/RadiologyOrderDetailPage'))
+const MedicationsPage = lazy(() => import('@/pages/medications/MedicationsPage'))
+const MedicationDetailPage = lazy(() => import('@/pages/medications/MedicationDetailPage'))
+const AppointmentDetailPage = lazy(() => import('@/pages/appointments/AppointmentDetailPage'))
+const ProviderDetailPage = lazy(() => import('@/pages/providers/ProviderDetailPage'))
 
 function PageLoader() {
   return (
@@ -68,18 +74,24 @@ export default function App() {
           <Route path="/patients" element={<PatientsPage />} />
           <Route path="/patients/:id" element={<PatientDetailPage />} />
           <Route path="/appointments" element={<AppointmentsPage />} />
+          <Route path="/appointments/:id" element={<AppointmentDetailPage />} />
+          <Route path="/providers/:id" element={<ProviderDetailPage />} />
           <Route path="/visits" element={<VisitsPage />} />
           <Route path="/visits/:id" element={<VisitDetailPage />} />
           <Route path="/prescriptions" element={<PrescriptionsPage />} />
+          <Route path="/prescriptions/:id" element={<PrescriptionDetailPage />} />
           <Route path="/lab-orders" element={<LabOrdersPage />} />
           <Route path="/lab-orders/:id" element={<LabOrderDetailPage />} />
           <Route path="/billing" element={<BillingPage />} />
           <Route path="/billing/:id" element={<InvoiceDetailPage />} />
+          <Route path="/medications" element={<MedicationsPage />} />
+          <Route path="/medications/:id" element={<MedicationDetailPage />} />
           <Route path="/appointments/availability" element={<DoctorAvailabilityPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/ai" element={<AIPage />} />
           <Route path="/pharmacy" element={<PharmacyPage />} />
           <Route path="/radiology" element={<RadiologyPage />} />
+          <Route path="/radiology/:id" element={<RadiologyOrderDetailPage />} />
           <Route path="/pharmacy/orders" element={<PharmacyOrdersPage />} />
           <Route path="/insurance" element={<InsurancePage />} />
           <Route path="/audit-log" element={<AuditLogPage />} />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { format, parseISO, isValid } from 'date-fns'
 import { Plus, Search, DollarSign, CreditCard, TrendingUp, AlertTriangle } from 'lucide-react'
 import { useInvoices, useBillingSummary, useCreateInvoice, useInvoiceAction, useRecordPayment } from '@/hooks/useBilling'
@@ -10,6 +10,7 @@ import { X } from 'lucide-react'
 
 export default function BillingPage() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -99,7 +100,11 @@ export default function BillingPage() {
         ) : data?.results?.length ? (
           <div className="divide-y divide-gray-50">
             {data.results.map(invoice => (
-              <div key={invoice.id} className="flex items-center gap-4 p-5 hover:bg-gray-50/50 transition-colors">
+              <div
+                key={invoice.id}
+                onClick={() => navigate(`/billing/${invoice.id}`)}
+                className="flex items-center gap-4 p-5 hover:bg-gray-50/50 transition-colors cursor-pointer"
+              >
                 <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
                   <DollarSign className="w-5 h-5 text-emerald-600" />
                 </div>
@@ -116,7 +121,7 @@ export default function BillingPage() {
                     <p className="text-xs text-red-600">Due: ${Number(invoice.balance_due).toFixed(2)}</p>
                   )}
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
                   {invoice.status === 'draft' && (
                     <button onClick={() => invoiceAction.mutate({ id: invoice.id, action: 'finalize' })} className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded hover:bg-blue-100">Finalize</button>
                   )}

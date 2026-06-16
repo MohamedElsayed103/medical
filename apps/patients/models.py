@@ -6,7 +6,7 @@ No cross-tenant sharing.
 """
 from django.db import models
 
-from common.enums import Gender
+from common.enums import DocumentCategory, Gender
 from common.models import SoftDeleteModel
 
 
@@ -81,3 +81,37 @@ class Customer(SoftDeleteModel):
 
     def __str__(self):
         return f"{self.full_name} ({self.phone})"
+
+
+class Document(SoftDeleteModel):
+    """A file attached to a patient (lab report, ID, consent, imaging, etc.).
+
+    Stored via the configured storage backend (filesystem in dev, S3/MinIO in
+    prod). Medical documents are soft-deleted, never hard-deleted.
+    """
+
+    patient = models.ForeignKey(
+        Patient, null=True, blank=True, on_delete=models.PROTECT, related_name="documents"
+    )
+    customer = models.ForeignKey(
+        Customer, null=True, blank=True, on_delete=models.PROTECT, related_name="documents"
+    )
+    category = models.CharField(
+        max_length=20, choices=DocumentCategory.choices, default=DocumentCategory.OTHER
+    )
+    file = models.FileField(upload_to="documents/")
+    filename = models.CharField(max_length=255, blank=True)
+    content_type = models.CharField(max_length=100, blank=True)
+    size = models.PositiveIntegerField(default=0)
+    description = models.CharField(max_length=255, blank=True)
+    uploaded_by_id = models.UUIDField(null=True, blank=True)
+
+    class Meta:
+        db_table = "patients_document"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["patient", "category"])]
+
+    AUDITED = True
+
+    def __str__(self):
+        return self.filename or str(self.file)

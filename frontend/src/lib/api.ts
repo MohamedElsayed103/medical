@@ -10,6 +10,28 @@ const api = axios.create({
   },
 })
 
+/**
+ * Derive a human-readable message from any API error. The backend returns
+ * `{ "error": { "code", "message" } }` for business-rule failures and DRF's
+ * `{ "detail": ... }` / `{ field: [msg] }` for validation. This normalizes all
+ * of them so toasts show the real message instead of "An unexpected error…".
+ */
+export function getApiErrorMessage(error: any, fallback = 'Something went wrong'): string {
+  const data = error?.response?.data
+  if (data) {
+    if (typeof data === 'string') return data
+    if (data.error?.message) return data.error.message
+    if (typeof data.error === 'string') return data.error
+    if (data.detail) return typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)
+    if (data.message) return data.message
+    // DRF field errors: { field: ["msg", ...] }
+    const firstField = Object.values(data).find(v => Array.isArray(v) && v.length > 0)
+    if (firstField) return String((firstField as any[])[0])
+  }
+  if (error?.message && !/^request failed/i.test(error.message)) return error.message
+  return fallback
+}
+
 // Request interceptor - add auth token and tenant header
 api.interceptors.request.use((config) => {
   const { tokens, currentTenant } = useAuthStore.getState()
@@ -58,7 +80,15 @@ api.interceptors.response.use(
         window.location.href = '/login'
       }
     }
-    
+
+    // Normalize the error message so any consumer gets a real message.
+    const msg = getApiErrorMessage(error)
+    error.apiMessage = msg
+    // Back-compat: many components read `error.response.data.detail` directly.
+    if (error.response?.data && typeof error.response.data === 'object' && !error.response.data.detail) {
+      error.response.data.detail = msg
+    }
+
     return Promise.reject(error)
   }
 )

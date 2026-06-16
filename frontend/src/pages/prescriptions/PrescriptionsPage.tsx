@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Plus, Search, Pill } from 'lucide-react'
 import { safeFormat } from '@/lib/utils'
 import { usePrescriptions, useCreatePrescription, useMedications } from '@/hooks/usePrescriptions'
@@ -41,7 +42,7 @@ export default function PrescriptionsPage() {
         ) : data?.results?.length ? (
           <div className="divide-y divide-gray-50">
             {data.results.map(rx => (
-              <div key={rx.id} className="flex items-center gap-4 p-5 hover:bg-gray-50/50 transition-colors">
+              <Link key={rx.id} to={`/prescriptions/${rx.id}`} className="flex items-center gap-4 p-5 hover:bg-gray-50/50 transition-colors">
                 <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
                   <Pill className="w-5 h-5 text-purple-600" />
                 </div>
@@ -64,7 +65,7 @@ export default function PrescriptionsPage() {
                   rx.status === 'dispensed' ? 'bg-blue-100 text-blue-700' :
                   'bg-gray-100 text-gray-700'
                 }`}>{rx.status}</span>
-              </div>
+              </Link>
             ))}
           </div>
         ) : (

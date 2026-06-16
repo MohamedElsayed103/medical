@@ -61,3 +61,22 @@ class NotificationPreference(BaseModel):
             NotificationChannel.IN_APP: self.in_app_enabled,
         }
         return mapping.get(channel, True)
+
+
+class PushDevice(BaseModel):
+    """A registered push-notification device token for a user."""
+
+    user_id = models.UUIDField(db_index=True, help_text="User ID from public schema")
+    token = models.CharField(max_length=512)
+    platform = models.CharField(max_length=20, default="web")  # web | ios | android
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "notifications_push_device"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user_id", "token"], name="uniq_user_device_token"),
+        ]
+
+    def __str__(self):
+        return f"PushDevice({self.user_id}, {self.platform})"

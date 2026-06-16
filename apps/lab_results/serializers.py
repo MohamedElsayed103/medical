@@ -6,6 +6,19 @@ from rest_framework import serializers
 from .models import LabOrder, LabTest, TestResult
 
 
+def _lab_doctor_name(doctor) -> str:
+    """Resolve a DoctorProfile's display name via its cross-schema user_id."""
+    if not doctor:
+        return "—"
+    from apps.accounts.models import User
+    try:
+        user = User.objects.get(pk=doctor.user_id)
+        name = f"{user.first_name} {user.last_name}".strip()
+        return name or user.email
+    except User.DoesNotExist:
+        return doctor.specialization or "—"
+
+
 class TestResultSerializer(serializers.ModelSerializer):
     class Meta:
         model = TestResult
@@ -53,6 +66,7 @@ class LabTestInputSerializer(serializers.Serializer):
 class LabOrderSerializer(serializers.ModelSerializer):
     tests = LabTestSerializer(many=True, read_only=True)
     patient_name = serializers.CharField(source="patient.full_name", read_only=True)
+    doctor_name = serializers.SerializerMethodField()
 
     class Meta:
         model = LabOrder
@@ -62,6 +76,7 @@ class LabOrderSerializer(serializers.ModelSerializer):
             "patient",
             "patient_name",
             "doctor",
+            "doctor_name",
             "visit",
             "status",
             "priority",
@@ -81,6 +96,9 @@ class LabOrderSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def get_doctor_name(self, obj) -> str:
+        return _lab_doctor_name(obj.doctor)
 
 
 class LabOrderCreateSerializer(serializers.Serializer):
@@ -114,12 +132,4 @@ class LabOrderListSerializer(serializers.ModelSerializer):
         ]
 
     def get_doctor_name(self, obj) -> str:
-        if obj.doctor:
-            from apps.accounts.models import User
-            try:
-                user = User.objects.get(pk=obj.doctor.user_id)
-                name = f"{user.first_name} {user.last_name}".strip()
-                return name or user.email
-            except User.DoesNotExist:
-                return obj.doctor.specialization
-        return "—"
+        return _lab_doctor_name(obj.doctor)

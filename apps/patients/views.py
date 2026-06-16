@@ -3,15 +3,17 @@ Patient views.
 """
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import GenericViewSet, ModelViewSet
+from rest_framework import mixins
 
 from apps.accounts.permissions import IsBillingStaff, IsDoctor, IsLabTech, IsReceptionistOrAbove
 
 from .filters import PatientFilter
-from .models import Patient
-from .serializers import PatientCreateSerializer, PatientListSerializer, PatientSerializer
-from .services import PatientService
+from .models import Document, Patient
+from .serializers import DocumentSerializer, PatientCreateSerializer, PatientListSerializer, PatientSerializer
+from .services import DocumentService, PatientService
 
 
 class PatientViewSet(ModelViewSet):
@@ -109,6 +111,39 @@ class PatientViewSet(ModelViewSet):
             return self.get_paginated_response(LabOrderListSerializer(page, many=True).data)
         return Response(LabOrderListSerializer(orders, many=True).data)
 
+    @action(detail=True, methods=["get"])
+    def timeline(self, request, pk=None):
+        """GET /api/v1/patients/{id}/timeline/?kinds=visit,lab_order — merged chart timeline."""
+        patient = self.get_object()
+        kinds_param = request.query_params.get("kinds")
+        kinds = [k.strip() for k in kinds_param.split(",")] if kinds_param else None
+        return Response(PatientService.timeline(patient, kinds=kinds))
+
+    @action(detail=True, methods=["get"])
+    def summary(self, request, pk=None):
+        """GET /api/v1/patients/{id}/summary/ — chart summary blocks."""
+        patient = self.get_object()
+        return Response(PatientService.summary(patient))
+
+    @action(detail=True, methods=["get", "post"], parser_classes=[MultiPartParser, FormParser])
+    def documents(self, request, pk=None):
+        """GET list / POST upload (multipart) documents for a patient."""
+        patient = self.get_object()
+        if request.method == "GET":
+            docs = Document.objects.filter(patient=patient)
+            page = self.paginate_queryset(docs)
+            ser = DocumentSerializer(page if page is not None else docs, many=True, context={"request": request})
+            return self.get_paginated_response(ser.data) if page is not None else Response(ser.data)
+
+        doc = DocumentService.create_from_upload(
+            patient=patient,
+            uploaded_file=request.FILES.get("file"),
+            category=request.data.get("category", "other"),
+            description=request.data.get("description", ""),
+            uploaded_by_id=str(request.user.id),
+        )
+        return Response(DocumentSerializer(doc, context={"request": request}).data, status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=["get"], permission_classes=[IsBillingStaff])
     def invoices(self, request, pk=None):
         """GET /api/v1/patients/{id}/invoices/ — patient billing history."""
@@ -121,3 +156,21 @@ class PatientViewSet(ModelViewSet):
         if page is not None:
             return self.get_paginated_response(InvoiceListSerializer(page, many=True).data)
         return Response(InvoiceListSerializer(invoices, many=True).data)
+
+
+class DocumentViewSet(mixins.RetrieveModelMixin, mixins.DestroyModelMixin, GenericViewSet):
+    """
+    /api/v1/documents/{id}/ — retrieve + soft-delete a document.
+    """
+
+    queryset = Document.objects.all()
+    serializer_class = DocumentSerializer
+    permission_classes = [IsReceptionistOrAbove]
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), "request": self.request}
+
+    def destroy(self, request, *args, **kwargs):
+        doc = self.get_object()
+        doc.soft_delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

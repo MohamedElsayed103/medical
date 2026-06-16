@@ -5,8 +5,16 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { cn, getInitials, generateAvatarColor } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
-import { notificationsService, patientsService } from '@/services/api'
+import { notificationsService, searchService } from '@/services/api'
+import { useNotificationSocket } from '@/hooks/useNotificationSocket'
 import TenantSwitcher from './TenantSwitcher'
+
+const SEARCH_GROUPS: { key: 'patients' | 'invoices' | 'lab_orders' | 'radiology_orders'; label: string }[] = [
+  { key: 'patients', label: 'Patients' },
+  { key: 'invoices', label: 'Invoices' },
+  { key: 'lab_orders', label: 'Lab Orders' },
+  { key: 'radiology_orders', label: 'Radiology' },
+]
 
 export default function TopBar() {
   const { toggleSidebar } = useUIStore()
@@ -23,6 +31,9 @@ export default function TopBar() {
   const userName = user ? `${user.first_name} ${user.last_name}` : 'User'
   const avatarColor = generateAvatarColor(userName)
 
+  // Live notification updates (falls back to polling if WS is unavailable)
+  useNotificationSocket()
+
   // Notifications
   const { data: notifications } = useQuery({
     queryKey: ['notifications', { page_size: 5 }],
@@ -30,12 +41,15 @@ export default function TopBar() {
     retry: false,
   })
 
-  // Search patients
+  // Global search (patients, invoices, lab + radiology orders)
   const { data: searchResults } = useQuery({
-    queryKey: ['search', searchQuery],
-    queryFn: () => patientsService.getAll({ search: searchQuery, page_size: 5 }),
+    queryKey: ['global-search', searchQuery],
+    queryFn: () => searchService.query(searchQuery),
     enabled: searchQuery.length >= 2,
   })
+  const totalHits = searchResults
+    ? SEARCH_GROUPS.reduce((n, g) => n + (searchResults[g.key]?.length ?? 0), 0)
+    : 0
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -96,27 +110,33 @@ export default function TopBar() {
 
           {/* Search Results Dropdown */}
           {searchOpen && searchQuery.length >= 2 && (
-            <div className="absolute top-full mt-2 left-0 w-80 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50">
-              {searchResults?.results?.length ? (
-                <div className="divide-y divide-slate-50 max-h-64 overflow-y-auto">
-                  {searchResults.results.map((patient: any) => (
-                    <button
-                      key={patient.id}
-                      onClick={() => { navigate(`/patients/${patient.id}`); setSearchQuery(''); setSearchOpen(false) }}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 text-left"
-                    >
-                      <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-xs font-semibold text-primary-700">
-                        {patient.first_name?.[0]}{patient.last_name?.[0]}
+            <div className="absolute top-full mt-2 left-0 w-96 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-50">
+              {totalHits > 0 ? (
+                <div className="max-h-80 overflow-y-auto">
+                  {SEARCH_GROUPS.map(group => {
+                    const hits = searchResults?.[group.key] ?? []
+                    if (!hits.length) return null
+                    return (
+                      <div key={group.key}>
+                        <p className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{group.label}</p>
+                        {hits.map(hit => (
+                          <button
+                            key={hit.id}
+                            onClick={() => { navigate(hit.link); setSearchQuery(''); setSearchOpen(false) }}
+                            className="w-full flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-slate-50 text-left"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-slate-800 truncate">{hit.label}</p>
+                              {hit.sublabel && <p className="text-xs text-slate-400 truncate">{hit.sublabel}</p>}
+                            </div>
+                          </button>
+                        ))}
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">{patient.first_name} {patient.last_name}</p>
-                        <p className="text-xs text-slate-400">{patient.medical_record_number || patient.email || patient.phone || ''}</p>
-                      </div>
-                    </button>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
-                <div className="px-4 py-6 text-center text-sm text-slate-400">No patients found</div>
+                <div className="px-4 py-6 text-center text-sm text-slate-400">No results found</div>
               )}
             </div>
           )}

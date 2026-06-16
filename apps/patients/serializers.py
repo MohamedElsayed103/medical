@@ -5,7 +5,26 @@ from rest_framework import serializers
 
 from common.utils import decrypt_field, encrypt_field
 
-from .models import Patient
+from .models import Document, Patient
+
+
+class DocumentSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Document
+        fields = [
+            "id", "patient", "category", "filename", "content_type", "size",
+            "description", "file_url", "uploaded_by_id", "created_at",
+        ]
+        read_only_fields = ["id", "filename", "content_type", "size", "uploaded_by_id", "created_at"]
+
+    def get_file_url(self, obj) -> str | None:
+        if not obj.file:
+            return None
+        request = self.context.get("request")
+        url = obj.file.url
+        return request.build_absolute_uri(url) if request else url
 
 
 class PatientSerializer(serializers.ModelSerializer):

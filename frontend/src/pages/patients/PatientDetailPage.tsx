@@ -1,15 +1,34 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { format, parseISO, isValid } from 'date-fns'
+import toast from 'react-hot-toast'
 import {
   ArrowLeft, Edit2, Phone, Mail, MapPin, Heart, AlertTriangle,
-  FileText, Pill, FlaskConical, DollarSign, User,
+  FileText, Pill, FlaskConical, DollarSign, User, Clock, ScanLine, Receipt, Stethoscope,
+  FolderOpen, Upload, Trash2, Download,
 } from 'lucide-react'
 import { usePatient, usePatientVisits, usePatientPrescriptions, usePatientLabResults, usePatientInvoices, useDeletePatient } from '@/hooks/usePatients'
+import { patientsService } from '@/services/api'
+import { getApiErrorMessage } from '@/lib/api'
+import { DOCUMENT_CATEGORIES } from '@/types'
+import StatusChip from '@/components/ui/StatusChip'
+import { formatClinicDateTime } from '@/lib/utils'
 import PatientFormModal from './PatientFormModal'
 
-type Tab = 'overview' | 'visits' | 'prescriptions' | 'lab-results' | 'invoices'
+const TIMELINE_ICONS: Record<string, any> = {
+  visit: Stethoscope, prescription: Pill, lab_order: FlaskConical, radiology_order: ScanLine, invoice: Receipt,
+}
+
+function formatBytes(n: number): string {
+  if (!n) return '0 B'
+  const k = 1024, units = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(n) / Math.log(k))
+  return `${(n / Math.pow(k, i)).toFixed(i ? 1 : 0)} ${units[i]}`
+}
+
+type Tab = 'overview' | 'visits' | 'prescriptions' | 'lab-results' | 'invoices' | 'documents'
 
 export default function PatientDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -22,7 +41,41 @@ export default function PatientDetailPage() {
   const { data: prescriptions } = usePatientPrescriptions(id!, {})
   const { data: labResults } = usePatientLabResults(id!, {})
   const { data: invoices } = usePatientInvoices(id!, {})
+  const { data: timeline } = useQuery({
+    queryKey: ['patient-timeline', id],
+    queryFn: () => patientsService.getTimeline(id!),
+    enabled: !!id,
+  })
+  const { data: summary } = useQuery({
+    queryKey: ['patient-summary', id],
+    queryFn: () => patientsService.getSummary(id!),
+    enabled: !!id,
+  })
+  const { data: documents } = useQuery({
+    queryKey: ['patient-documents', id],
+    queryFn: () => patientsService.getDocuments(id!),
+    enabled: !!id,
+  })
   const deletePatient = useDeletePatient()
+  const qc = useQueryClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [docCategory, setDocCategory] = useState('other')
+
+  const uploadDoc = useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('category', docCategory)
+      return patientsService.uploadDocument(id!, fd)
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['patient-documents', id] }); qc.invalidateQueries({ queryKey: ['patient-timeline', id] }); toast.success('Document uploaded') },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  })
+  const deleteDoc = useMutation({
+    mutationFn: (docId: string) => patientsService.deleteDocument(docId),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['patient-documents', id] }); toast.success('Document removed') },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  })
 
   if (isLoading) {
     return (
@@ -53,6 +106,7 @@ export default function PatientDetailPage() {
     { id: 'prescriptions', label: 'Prescriptions', icon: Pill, count: prescriptions?.count },
     { id: 'lab-results', label: 'Lab Results', icon: FlaskConical, count: labResults?.count },
     { id: 'invoices', label: 'Invoices', icon: DollarSign, count: invoices?.count },
+    { id: 'documents', label: 'Documents', icon: FolderOpen, count: documents?.count },
   ]
 
   return (
@@ -157,31 +211,100 @@ export default function PatientDetailPage() {
       {/* Tab Content */}
       <div>
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {patient.chronic_conditions?.length > 0 && (
-              <div className="bg-white rounded-xl p-5 shadow-soft border border-gray-100">
-                <h3 className="font-semibold text-gray-900 mb-3">Chronic Conditions</h3>
-                <div className="flex flex-wrap gap-2">
-                  {patient.chronic_conditions.map((c, i) => (
-                    <span key={i} className="px-3 py-1 bg-red-50 text-red-700 rounded-lg text-sm">{c}</span>
-                  ))}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left column: summary blocks */}
+            <div className="space-y-6">
+              {/* KPI cards */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white rounded-xl p-4 shadow-soft border border-gray-100">
+                  <p className="text-xs text-gray-500">Outstanding</p>
+                  <p className={`text-xl font-bold ${Number(summary?.outstanding_balance ?? 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    ${Number(summary?.outstanding_balance ?? 0).toFixed(2)}
+                  </p>
+                </div>
+                <div className="bg-white rounded-xl p-4 shadow-soft border border-gray-100">
+                  <p className="text-xs text-gray-500">Open Lab Orders</p>
+                  <p className="text-xl font-bold text-gray-900">{summary?.open_lab_orders ?? 0}</p>
+                </div>
+                <div className="bg-white rounded-xl p-4 shadow-soft border border-gray-100">
+                  <p className="text-xs text-gray-500">Total Visits</p>
+                  <p className="text-xl font-bold text-gray-900">{summary?.visit_count ?? visits?.count ?? 0}</p>
+                </div>
+                <div className="bg-white rounded-xl p-4 shadow-soft border border-gray-100">
+                  <p className="text-xs text-gray-500">Prescriptions</p>
+                  <p className="text-xl font-bold text-gray-900">{prescriptions?.count ?? 0}</p>
                 </div>
               </div>
-            )}
-            {patient.notes && (
+
+              {/* Active medications */}
               <div className="bg-white rounded-xl p-5 shadow-soft border border-gray-100">
-                <h3 className="font-semibold text-gray-900 mb-3">Notes</h3>
-                <p className="text-sm text-gray-600 whitespace-pre-wrap">{patient.notes}</p>
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Pill className="w-4 h-4 text-purple-500" /> Active Medications</h3>
+                {summary?.active_medications?.length ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {summary.active_medications.map((m, i) => (
+                      <span key={i} className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs">{m}</span>
+                    ))}
+                  </div>
+                ) : <p className="text-sm text-gray-400">None on record</p>}
               </div>
-            )}
-            <div className="bg-white rounded-xl p-5 shadow-soft border border-gray-100">
-              <h3 className="font-semibold text-gray-900 mb-3">Summary</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div><span className="text-gray-500">Total Visits:</span> <span className="font-medium">{visits?.count ?? 0}</span></div>
-                <div><span className="text-gray-500">Prescriptions:</span> <span className="font-medium">{prescriptions?.count ?? 0}</span></div>
-                <div><span className="text-gray-500">Lab Orders:</span> <span className="font-medium">{labResults?.count ?? 0}</span></div>
-                <div><span className="text-gray-500">Invoices:</span> <span className="font-medium">{invoices?.count ?? 0}</span></div>
+
+              {/* Allergies */}
+              <div className="bg-white rounded-xl p-5 shadow-soft border border-gray-100">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-amber-500" /> Allergies</h3>
+                {patient.allergies?.length ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {patient.allergies.map((a, i) => <span key={i} className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded text-xs">{a}</span>)}
+                  </div>
+                ) : <p className="text-sm text-gray-400">No known allergies</p>}
               </div>
+
+              {patient.chronic_conditions?.length > 0 && (
+                <div className="bg-white rounded-xl p-5 shadow-soft border border-gray-100">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2"><Heart className="w-4 h-4 text-red-500" /> Chronic Conditions</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {patient.chronic_conditions.map((c, i) => <span key={i} className="px-2 py-0.5 bg-red-50 text-red-700 rounded text-xs">{c}</span>)}
+                  </div>
+                </div>
+              )}
+              {patient.notes && (
+                <div className="bg-white rounded-xl p-5 shadow-soft border border-gray-100">
+                  <h3 className="font-semibold text-gray-900 mb-3">Notes</h3>
+                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{patient.notes}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Right column: timeline */}
+            <div className="lg:col-span-2 bg-white rounded-xl p-5 shadow-soft border border-gray-100">
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2"><Clock className="w-4 h-4 text-primary-500" /> Patient Timeline</h3>
+              {timeline?.length ? (
+                <div className="relative pl-6">
+                  <div className="absolute left-2 top-1 bottom-1 w-px bg-gray-200" />
+                  <div className="space-y-4">
+                    {timeline.map(ev => {
+                      const Icon = TIMELINE_ICONS[ev.type] || FileText
+                      return (
+                        <Link key={`${ev.type}-${ev.id}`} to={ev.link} className="relative block group">
+                          <span className="absolute -left-[1.35rem] top-1 w-4 h-4 rounded-full bg-white border-2 border-primary-400 group-hover:border-primary-600" />
+                          <div className="flex items-start justify-between gap-3 rounded-lg px-3 py-2 -mx-3 group-hover:bg-gray-50">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <Icon className="w-4 h-4 text-gray-400 shrink-0" />
+                                <p className="font-medium text-gray-900 truncate">{ev.title}</p>
+                                <StatusChip status={ev.status} />
+                              </div>
+                              <p className="text-xs text-gray-500 mt-0.5">{ev.subtitle}</p>
+                            </div>
+                            <p className="text-xs text-gray-400 whitespace-nowrap shrink-0">{formatClinicDateTime(ev.occurred_at)}</p>
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-400 text-sm">No activity recorded yet</div>
+              )}
             </div>
           </div>
         )}
@@ -216,17 +339,21 @@ export default function PatientDetailPage() {
             {prescriptions?.results?.length ? (
               <div className="divide-y divide-gray-50">
                 {prescriptions.results.map(rx => (
-                  <div key={rx.id} className="p-4">
+                  <Link key={rx.id} to={`/prescriptions/${rx.id}`} className="block p-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium text-gray-900">{rx.items?.length || 0} medication(s)</p>
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate">
+                          {rx.items?.length
+                            ? rx.items.map((it: any) => it.medication_name || it.medication?.name).filter(Boolean).join(', ')
+                            : `${rx.items?.length || 0} medication(s)`}
+                        </p>
                         <p className="text-sm text-gray-500">Dr. {rx.doctor_name} • {rx.created_at && isValid(parseISO(rx.created_at)) ? format(parseISO(rx.created_at), 'MMM d, yyyy') : '—'}</p>
                       </div>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
                         rx.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
                       }`}>{rx.status}</span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (
@@ -285,6 +412,54 @@ export default function PatientDetailPage() {
               </div>
             ) : (
               <div className="text-center py-12 text-gray-400">No invoices</div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'documents' && (
+          <div className="bg-white rounded-xl shadow-soft border border-gray-100 overflow-hidden">
+            {/* Upload bar */}
+            <div className="flex items-center gap-3 p-4 border-b border-gray-100 bg-gray-50/50">
+              <select value={docCategory} onChange={e => setDocCategory(e.target.value)} className="input-field w-auto text-sm">
+                {DOCUMENT_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+              <input ref={fileRef} type="file" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadDoc.mutate(f); if (fileRef.current) fileRef.current.value = '' }} />
+              <button onClick={() => fileRef.current?.click()} disabled={uploadDoc.isPending}
+                className="btn-primary text-sm flex items-center gap-2">
+                <Upload className="w-4 h-4" /> {uploadDoc.isPending ? 'Uploading...' : 'Upload Document'}
+              </button>
+              <span className="text-xs text-gray-400 ml-auto">PDF, images, or docs up to 10 MB</span>
+            </div>
+
+            {documents?.results?.length ? (
+              <div className="divide-y divide-gray-50">
+                {documents.results.map(doc => (
+                  <div key={doc.id} className="flex items-center gap-4 p-4 hover:bg-gray-50/50">
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{doc.filename || 'Document'}</p>
+                      <p className="text-xs text-gray-500">
+                        <span className="capitalize">{doc.category}</span> • {formatBytes(doc.size)} • {formatClinicDateTime(doc.created_at)}
+                      </p>
+                    </div>
+                    {doc.file_url && (
+                      <a href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                        className="p-2 rounded-lg hover:bg-gray-100 text-gray-500" title="Download / view">
+                        <Download className="w-4 h-4" />
+                      </a>
+                    )}
+                    <button onClick={() => { if (confirm('Remove this document?')) deleteDoc.mutate(doc.id) }}
+                      className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500" title="Delete">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-400">No documents uploaded</div>
             )}
           </div>
         )}
